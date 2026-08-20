@@ -1,0 +1,877 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Destination Unknown: Australian Edition</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Courier+Prime:ital,wght@0,400;0,700;1,400&family=Playfair+Display:ital,wght@0,700;0,900;1,400&family=Libre+Barcode+39+Text&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --parchment-light: #f4efeb;
+            --parchment-dark: #a3978c;
+            --ink: #1a1511;
+            --red-ink: #8b1e1e;
+            --blue-ink: #1e3a5f;
+            --success-ink: #2e7d32;
+            --fail-ink: #555555;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+
+        body {
+            background: radial-gradient(circle, #fcfaf8 10%, #bfb4a8 100%);
+            font-family: 'Courier Prime', monospace;
+            color: var(--ink);
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        /* --- THE MAP --- */
+        #map-container {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background-color: var(--parchment-light);
+            z-index: 1; opacity: 0; transition: opacity 1.5s ease-in;
+        }
+
+        #map { width: 100%; height: calc(100% - 120px); background: #dcd2c6; }
+
+        .leaflet-tile-pane {
+            filter: sepia(0.6) contrast(1.25) brightness(0.95) hue-rotate(-15deg);
+            opacity: 0.9;
+        }
+
+        /* Flight Markers
+           IMPORTANT: Leaflet owns the transform on the marker wrapper.
+           Never animate/rotate that wrapper. */
+        .flight-marker-wrapper {
+            background: transparent !important;
+            border: none !important;
+            width: 24px !important;
+            height: 24px !important;
+            margin: 0 !important;
+            overflow: visible !important;
+        }
+
+        .flight-dot {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            box-shadow: 0 0 6px rgba(0,0,0,0.6);
+            animation: inkPulse 1.5s infinite alternate;
+            cursor: pointer;
+            border: 2px solid #fff;
+            transition: opacity 0.5s ease;
+            transform-origin: 50% 50%;
+        }
+
+        .flight-marker-wrapper.domestic .flight-dot {
+            background-color: var(--blue-ink);
+        }
+
+        .flight-marker-wrapper.international .flight-dot {
+            background-color: var(--red-ink);
+        }
+
+        .flight-marker-wrapper .flight-dot.fade-out {
+            opacity: 0 !important;
+            pointer-events: none;
+        }
+
+        @keyframes inkPulse {
+            from {
+                box-shadow: 0 0 4px rgba(0,0,0,0.4);
+            }
+            to {
+                box-shadow: 0 0 12px rgba(0,0,0,0.8);
+            }
+        }
+
+        /* --- TOP LOGO OVERLAY --- */
+        #logo-overlay {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 1000;
+            text-align: left;
+            pointer-events: none;
+            background: rgba(244, 239, 235, 0.96);
+            padding: 12px 16px;
+            border: 1px solid rgba(26, 21, 17, 0.35);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.18);
+            border-radius: 4px;
+        }
+        #logo-overlay h1 { font-family: 'Playfair Display', serif; font-size: 1.6rem; text-transform: uppercase; letter-spacing: 1px; color: var(--ink); margin-bottom: 2px; text-shadow: 1px 1px 3px rgba(255,255,255,0.8); }
+        #logo-overlay h3 { font-family: 'Playfair Display', serif; color: var(--red-ink); font-size: 0.8rem; letter-spacing: 3px; text-transform: uppercase; text-shadow: 1px 1px 2px rgba(255,255,255,0.8); }
+
+        /* --- START SCREEN TICKET --- */
+        #ticket-screen {
+            position: absolute; z-index: 100;
+            width: 100%; height: 100%;
+            display: flex; justify-content: center; align-items: center;
+            perspective: 1000px;
+        }
+
+        .ticket {
+            background: #fffdfa;
+            width: 550px; max-width: 90%;
+            border-radius: 16px;
+            padding: 40px;
+            box-shadow: 0 25px 60px rgba(0,0,0,0.5);
+            transform-style: preserve-3d;
+            transition: transform 1.2s cubic-bezier(0.6, -0.28, 0.735, 0.045), opacity 1s ease-in;
+            border: 1px solid #d4cdc3;
+            background-image: radial-gradient(rgba(0,0,0,0.04) 1px, transparent 1px);
+            background-size: 10px 10px;
+        }
+
+        .ticket.unfold { transform: rotateX(90deg) scale(1.2); opacity: 0; pointer-events: none; }
+
+        .ticket-header { border-bottom: 2px dashed var(--ink); padding-bottom: 15px; margin-bottom: 25px; text-align: center; }
+        .ticket-header h1 { font-family: 'Playfair Display', serif; font-size: 2.2rem; text-transform: uppercase; letter-spacing: 1px; color: var(--ink); }
+        .ticket-header h3 { font-family: 'Playfair Display', serif; color: var(--red-ink); font-size: 1rem; letter-spacing: 4px; text-transform: uppercase;}
+        
+        .ticket-body { display: flex; justify-content: space-between; margin-bottom: 15px; }
+        .ticket-block { text-align: left; flex: 1; }
+        .ticket-block small { color: #666; text-transform: uppercase; font-size: 0.75rem; letter-spacing: 1px; }
+        .ticket-block p { font-size: 1.2rem; font-weight: bold; margin-top: 5px; }
+        
+        .passenger-input {
+            background: transparent; border: none; border-bottom: 2px solid var(--ink);
+            font-family: 'Courier Prime', monospace; font-size: 1.2rem; font-weight: bold;
+            color: var(--red-ink); width: 90%; padding: 5px 0; outline: none;
+        }
+        
+        .barcode { 
+            font-family: 'Libre Barcode 39 Text', cursive; 
+            font-size: 4rem; color: var(--ink); text-align: center; 
+            margin-bottom: 25px; transform: scaleY(1.3); margin-top: 15px;
+        }
+
+        .btn-board {
+            display: block; width: 100%; padding: 18px;
+            background: var(--red-ink); color: #fff; border-radius: 8px;
+            border: none; font-family: 'Courier Prime', monospace;
+            font-size: 1.2rem; font-weight: bold; cursor: pointer;
+            letter-spacing: 3px; text-transform: uppercase; transition: 0.2s;
+        }
+        .btn-board:hover { background: #681515; transform: translateY(-2px); box-shadow: 0 5px 15px rgba(139, 30, 30, 0.4); }
+
+        /* --- DASHBOARD --- */
+        #dashboard {
+            position: absolute; bottom: 0; left: 0; width: 100%; height: 120px;
+            background: var(--parchment-light); border-top: 2px solid var(--ink);
+            z-index: 50; display: flex; align-items: center; justify-content: space-between;
+            padding: 0 20px; box-shadow: 0 -10px 30px rgba(0,0,0,0.2);
+        }
+
+        .dash-section { flex: 1; }
+
+        /* Left: Tally */
+        .tally-board { border-left: 4px solid var(--red-ink); padding-left: 15px; }
+        .tally-title { font-family: 'Playfair Display', serif; font-size: 1.1rem; text-transform: uppercase; margin-bottom: 5px; font-weight: 900;}
+        .tally-score { font-size: 0.95rem; line-height: 1.4; color: #444; }
+        .tally-score span.correct { color: var(--success-ink); font-weight: bold; font-size: 1.1rem;}
+        .tally-score span.incorrect { color: var(--red-ink); font-weight: bold; font-size: 1.1rem;}
+
+        /* Center: Action Area */
+        .flight-action-area {
+            flex: 2; text-align: center; background: rgba(0,0,0,0.03); 
+            border: 1px dashed #aaa; padding: 10px 15px; border-radius: 8px;
+            height: 95px; display: flex; flex-direction: column; justify-content: center;
+            margin: 0 15px; position: relative;
+        }
+        
+        #idle-instruction { font-style: italic; color: #666; font-size: 0.9rem; }
+        
+        #active-flight-panel { display: none; width: 100%; align-items: center; justify-content: space-between; gap: 15px; }
+        .flight-stats { text-align: left; font-size: 0.8rem; line-height: 1.3; color: #444;}
+        .flight-stats strong { color: var(--ink); font-size: 1.1rem; }
+        .flight-type { font-size: 0.7rem; text-transform: uppercase; font-weight: bold; padding: 2px 6px; border-radius: 4px; display: inline-block; margin-bottom: 4px;}
+        .type-dom { background: var(--blue-ink); color: #fff; }
+        .type-int { background: var(--red-ink); color: #fff; }
+        
+        .input-group { display: flex; flex-grow: 1; height: 45px;}
+        #guess-input {
+            flex-grow: 1; padding: 10px; font-family: 'Courier Prime', monospace; font-size: 1rem;
+            border: 2px solid var(--ink); border-right: none; background: #fff; text-transform: uppercase; outline: none;
+            border-radius: 6px 0 0 6px;
+        }
+        .btn-guess {
+            padding: 0 20px; background: var(--ink); color: #fff; border: 2px solid var(--ink);
+            font-family: 'Courier Prime', monospace; font-weight: bold; cursor: pointer; transition: 0.2s;
+            border-radius: 0 6px 6px 0;
+        }
+        .btn-guess:hover { background: var(--red-ink); border-color: var(--red-ink); }
+
+        /* Right: Timer & Identity */
+        .nav-details { text-align: right; border-right: 4px solid var(--ink); padding-right: 15px; }
+        .game-time { font-family: 'Playfair Display', serif; font-size: 1.4rem; font-weight: 900; color: var(--ink); }
+        .timer { font-size: 0.9rem; color: var(--red-ink); margin-bottom: 5px; font-weight: bold;}
+        .identity { font-size: 0.8rem; color: #555; text-transform: uppercase; margin-bottom: 5px; }
+        
+        .btn-arrive {
+            background: transparent; color: var(--red-ink); border: 1px solid var(--red-ink);
+            padding: 4px 10px; font-family: 'Courier Prime', monospace; font-weight: bold;
+            cursor: pointer; font-size: 0.7rem; border-radius: 4px; transition: 0.2s;
+        }
+        .btn-arrive:hover { background: var(--red-ink); color: #fff; }
+
+        /* --- INK STAMP OVERLAY --- */
+        #stamp-overlay {
+            position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%) scale(2);
+            font-family: 'Playfair Display', serif; font-weight: 900; font-size: 3rem;
+            color: var(--red-ink); border: 6px solid var(--red-ink); padding: 10px 30px;
+            border-radius: 8px; opacity: 0; pointer-events: none; z-index: 200;
+            text-align: center; text-transform: uppercase; line-height: 1.1;
+            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.3s;
+            background: rgba(244, 239, 235, 0.9);
+        }
+        #stamp-overlay small { display: block; font-family: 'Courier Prime', monospace; font-size: 1rem; margin-top: 8px; font-weight: normal; color: var(--ink); }
+        #stamp-overlay.show { transform: translate(-50%, -50%) scale(1) rotate(-5deg); opacity: 1; }
+        #stamp-overlay.correct { color: var(--success-ink); border-color: var(--success-ink); }
+
+        /* --- FINAL DEBRIEF SCREEN --- */
+        #end-screen {
+            position: absolute; z-index: 500; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(26, 21, 17, 0.9); display: none; justify-content: center; align-items: center;
+        }
+        .end-card {
+            background: var(--parchment-light); padding: 40px; border: 2px dashed var(--ink);
+            text-align: center; max-width: 500px; border-radius: 8px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+        }
+        .end-card h1 { font-family: 'Playfair Display', serif; color: var(--ink); margin-bottom: 15px; font-size: 2.2rem;}
+        .end-card p { font-size: 1.1rem; line-height: 1.5; margin-bottom: 20px; }
+        .end-stats { font-size: 1.4rem; font-weight: bold; margin-bottom: 25px; border-top: 1px solid #ccc; border-bottom: 1px solid #ccc; padding: 15px 0;}
+        .end-stats span.grn { color: var(--success-ink); }
+        .end-subtle { font-size: 0.85rem; color: #888; font-style: italic; margin-bottom: 30px; }
+
+        @media (max-width: 768px) {
+            #dashboard { flex-direction: column; height: auto; padding: 15px; gap: 10px; }
+            #map { height: calc(100% - 200px); }
+            .dash-section { width: 100%; border: none !important; padding: 0 !important; text-align: center !important; }
+            .tally-board { display: flex; justify-content: space-around; border-bottom: 1px dashed #ccc !important; padding-bottom: 10px !important;}
+            .flight-action-area { height: auto; margin: 0; }
+            #logo-overlay h1 { font-size: 1.2rem; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- START SCREEN -->
+    <div id="ticket-screen">
+        <div class="ticket" id="ticket">
+            <div class="ticket-header">
+                <h1>Destination Unknown</h1>
+                <h3>Australian Edition</h3>
+            </div>
+            <div class="ticket-body">
+                <div class="ticket-block">
+                    <small>Pilot</small>
+                    <p>Trent Sellars</p>
+                </div>
+                <div class="ticket-block" style="text-align: right;">
+                    <small>Flight Controller</small>
+                    <input type="text" id="controller-name" class="passenger-input" placeholder="Enter Name..." autocomplete="off">
+                </div>
+            </div>
+            <div class="barcode">12111894</div>
+            <button class="btn-board" onclick="startGame()">DEPART</button>
+        </div>
+    </div>
+
+    <!-- MAP CONTAINER -->
+    <div id="map-container">
+        
+        <div id="logo-overlay">
+            <h1>Destination Unknown</h1>
+            <h3>Australian Edition</h3>
+        </div>
+
+        <div id="map"></div>
+        
+        <!-- FIXED DASHBOARD -->
+        <div id="dashboard">
+            <!-- Left: Tally -->
+            <div class="dash-section tally-board">
+                <div class="tally-title">Flight Log</div>
+                <div class="tally-score">
+                    Verified: <span class="correct" id="score-correct">0</span><br>
+                    Lost: <span class="incorrect" id="score-incorrect">0</span>
+                </div>
+            </div>
+
+            <!-- Center: Action Area -->
+            <div class="dash-section flight-action-area">
+                <div id="idle-instruction">Tap an active flight on the map to determine its destination before it leaves airspace.</div>
+                
+                <div id="active-flight-panel">
+                    <div class="flight-stats">
+                        <span class="flight-type" id="hud-type">DOMESTIC</span><br>
+                        <strong id="hud-callsign">QFA432</strong>
+                    </div>
+                    <div class="input-group">
+                        <input type="text" id="guess-input" placeholder="Destination City..." autocomplete="off">
+                        <button class="btn-guess" onclick="submitGuess()">VERIFY</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right: Timer & Identity -->
+            <div class="dash-section nav-details">
+                <div class="timer" id="real-timer">60:00 Remaining</div>
+                <div class="identity">
+                    FLIGHT CONTROLLER: <span id="hud-pax-name">Unknown</span>
+                </div>
+                <button class="btn-arrive" onclick="endGame()">ARRIVE</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- INK STAMP -->
+    <div id="stamp-overlay">
+        <span id="stamp-main">VERIFIED</span>
+        <small id="stamp-sub">MELBOURNE</small>
+    </div>
+
+    <!-- FINAL DEBRIEF SCREEN -->
+    <div id="end-screen">
+        <div class="end-card">
+            <h1>Shift Complete</h1>
+            <p>Thank you for your service to Australian airspace, <strong id="end-controller-name">Controller</strong>.</p>
+            <div class="end-stats">
+                Total Flights Verified: <span class="grn" id="end-verified">0</span>
+            </div>
+            <div class="end-subtle">
+                (And <span id="end-lost">0</span> flights permanently lost to the void...)
+            </div>
+            <button class="btn-board" onclick="restartGame()">START NEW SHIFT</button>
+        </div>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <script>
+        // --- GAME ENGINE STATE ---
+        let map;
+        let flights = {}; 
+        let activeSelectedFlight = null;
+        
+        let scoreVerified = 0;
+        let scoreLost = 0;
+        
+        // Time Variables
+        const REAL_TIME_LIMIT = 3600; // 60 minutes real time
+        let realTimeSeconds = 0;
+        let mainLoop;
+        let lastTimestamp = 0;
+        let isGameActive = false;
+
+        // --- DATABASES ---
+        const ausCities = [
+            { name: "Sydney", lat: -33.8688, lon: 151.2093 },
+            { name: "Melbourne", lat: -37.8136, lon: 144.9631 },
+            { name: "Brisbane", lat: -27.4698, lon: 153.0251 },
+            { name: "Perth", lat: -31.9505, lon: 115.8605 },
+            { name: "Adelaide", lat: -34.9285, lon: 138.6007 },
+            { name: "Hobart", lat: -42.8821, lon: 147.3272 },
+            { name: "Darwin", lat: -12.4634, lon: 130.8456 },
+            { name: "Cairns", lat: -16.9203, lon: 145.7709 },
+            { name: "Canberra", lat: -35.2809, lon: 149.1300 }
+        ];
+
+        const intlCities = [
+            { name: "Singapore", lat: 1.3521, lon: 103.8198 },
+            { name: "Auckland", lat: -36.8485, lon: 174.7633 },
+            { name: "Los Angeles", lat: 34.0522, lon: -118.2437 },
+            { name: "Tokyo", lat: 35.6762, lon: 139.6503 },
+            { name: "Bali", lat: -8.4095, lon: 115.1889 },
+            { name: "Dubai", lat: 25.2048, lon: 55.2708 }
+        ];
+
+        const domesticAirlines = ["QFA", "JST", "VOZ", "RXA"];
+        const intlAirlines = ["SIA", "BAW", "UAE", "ANZ", "JAL", "QFA"];
+
+        // --- INITIALIZATION ---
+        function startGame() {
+            let ctrlName = document.getElementById('controller-name').value.trim();
+            if(!ctrlName) ctrlName = "Unknown";
+            document.getElementById('hud-pax-name').innerText = ctrlName;
+
+            document.getElementById('ticket').classList.add('unfold');
+            
+            setTimeout(() => {
+                document.getElementById('ticket-screen').style.display = 'none';
+                document.getElementById('map-container').style.opacity = '1';
+                initMap();
+                
+                isGameActive = true;
+                lastTimestamp = performance.now();
+                mainLoop = requestAnimationFrame(gameLoop);
+            }, 1200);
+        }
+
+        function initMap() {
+            const bounds = L.latLngBounds(L.latLng(-45.0, 110.0), L.latLng(-10.0, 155.0));
+
+            map = L.map('map', { 
+                zoomControl: false, maxBounds: bounds, maxBoundsViscosity: 1.0,
+                minZoom: 4, maxZoom: 6
+            }).setView([-27.0, 133.0], 4.5);
+            
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png', {
+                attribution: '&copy; OpenStreetMap',
+                subdomains: 'abcd'
+            }).addTo(map);
+
+            // Recalculate map dimensions after the start-screen animation
+            setTimeout(() => { map.invalidateSize(); }, 200);
+
+            // Spawn initial flights already in motion
+            for(let i=0; i<18; i++) {
+                spawnFlight(Math.random() * 0.85); // Spread aircraft across up to 85% of their route
+            }
+        }
+
+        // --- GAME LOOP & CLOCK ---
+        function gameLoop(timestamp) {
+            if (!isGameActive) return;
+
+            const deltaTime = (timestamp - lastTimestamp) / 1000;
+            lastTimestamp = timestamp;
+            realTimeSeconds += deltaTime;
+            // One real hour represents a 24-hour traffic shift internally.
+            // The accelerated simulation is intentionally not shown on the HUD.
+            updateClocks();
+
+            // Spawn new flights periodically
+            // Simulate a full day of Australian air traffic during the
+            // one-hour game: approximately one new flight every 3 seconds
+            // on average, plus the initial aircraft already airborne.
+            if (Math.random() < (deltaTime / 3.0)) spawnFlight(0);
+
+            // Move existing flights
+            updateFlights(deltaTime);
+
+            if (realTimeSeconds < REAL_TIME_LIMIT) {
+                mainLoop = requestAnimationFrame(gameLoop);
+            } else {
+                endGame();
+            }
+        }
+
+        function updateClocks() {
+            let timeRemaining = Math.max(0, REAL_TIME_LIMIT - realTimeSeconds);
+            let rm = Math.floor(timeRemaining / 60).toString().padStart(2, '0');
+            let rs = Math.floor(timeRemaining % 60).toString().padStart(2, '0');
+            document.getElementById('real-timer').innerText = `${rm}:${rs} Remaining`;
+
+        }
+
+        // --- FLIGHT SIMULATION ENGINE ---
+
+        // Generate a shortest-path great-circle route over the Earth's surface.
+        function generateGreatCircleRoute(startLat, startLon, endLat, endLon, steps = 120) {
+            const toRad = deg => deg * Math.PI / 180;
+            const toDeg = rad => rad * 180 / Math.PI;
+
+            const lat1 = toRad(startLat);
+            const lon1 = toRad(startLon);
+            const lat2 = toRad(endLat);
+            const lon2 = toRad(endLon);
+
+            const x1 = Math.cos(lat1) * Math.cos(lon1);
+            const y1 = Math.cos(lat1) * Math.sin(lon1);
+            const z1 = Math.sin(lat1);
+
+            const x2 = Math.cos(lat2) * Math.cos(lon2);
+            const y2 = Math.cos(lat2) * Math.sin(lon2);
+            const z2 = Math.sin(lat2);
+
+            const dot = Math.max(-1, Math.min(1, x1 * x2 + y1 * y2 + z1 * z2));
+            const angle = Math.acos(dot);
+            const sinTotal = Math.sin(angle);
+
+            const route = [];
+
+            for (let i = 0; i <= steps; i++) {
+                const fraction = i / steps;
+
+                let x, y, z;
+
+                if (Math.abs(sinTotal) < 0.000001) {
+                    x = x1;
+                    y = y1;
+                    z = z1;
+                } else {
+                    const a = Math.sin((1 - fraction) * angle) / sinTotal;
+                    const b = Math.sin(fraction * angle) / sinTotal;
+
+                    x = a * x1 + b * x2;
+                    y = a * y1 + b * y2;
+                    z = a * z1 + b * z2;
+                }
+
+                const lat = Math.atan2(z, Math.sqrt(x * x + y * y));
+                const lon = Math.atan2(y, x);
+
+                route.push([toDeg(lat), toDeg(lon)]);
+            }
+
+            return route;
+        }
+
+        function getRoutePosition(route, progress) {
+            const p = Math.max(0, Math.min(1, progress));
+            const routePosition = p * (route.length - 1);
+            const index = Math.floor(routePosition);
+            const nextIndex = Math.min(index + 1, route.length - 1);
+            const segmentProgress = routePosition - index;
+
+            const current = route[index];
+            const next = route[nextIndex];
+
+            return [
+                current[0] + (next[0] - current[0]) * segmentProgress,
+                current[1] + (next[1] - current[1]) * segmentProgress
+            ];
+        }
+
+        function spawnFlight(initialProgress) {
+            const isIntl = Math.random() > 0.65;
+            const id = "FL_" + Math.floor(Math.random() * 100000);
+
+            let startCity, endCity, airlineCode;
+
+            if (isIntl) {
+                airlineCode = intlAirlines[Math.floor(Math.random() * intlAirlines.length)];
+
+                if (Math.random() > 0.5) {
+                    startCity = intlCities[Math.floor(Math.random() * intlCities.length)];
+                    endCity = ausCities[Math.floor(Math.random() * ausCities.length)];
+                } else {
+                    startCity = ausCities[Math.floor(Math.random() * ausCities.length)];
+                    endCity = intlCities[Math.floor(Math.random() * intlCities.length)];
+                }
+            } else {
+                airlineCode = domesticAirlines[Math.floor(Math.random() * domesticAirlines.length)];
+                startCity = ausCities[Math.floor(Math.random() * ausCities.length)];
+
+                do {
+                    endCity = ausCities[Math.floor(Math.random() * ausCities.length)];
+                } while (endCity.name === startCity.name);
+            }
+
+            const callsign = airlineCode + Math.floor(Math.random() * 900 + 100);
+
+            const dist = Math.hypot(
+                endCity.lat - startCity.lat,
+                endCity.lon - startCity.lon
+            );
+
+            // Faster gameplay while keeping long international routes visible.
+            const durationRealSeconds = Math.max(30, dist * 12);
+
+            const route = generateGreatCircleRoute(
+                startCity.lat,
+                startCity.lon,
+                endCity.lat,
+                endCity.lon,
+                120
+            );
+
+            const startPosition = getRoutePosition(route, initialProgress);
+
+            const iconClass = isIntl
+                ? 'flight-marker-wrapper international'
+                : 'flight-marker-wrapper domestic';
+
+            const icon = L.divIcon({
+                className: iconClass,
+                html: '<div class="flight-dot"></div>',
+                iconSize: [24, 24],
+                iconAnchor: [12, 12]
+            });
+
+            const marker = L.marker(startPosition, {
+                icon: icon,
+                zIndexOffset: isIntl ? 100 : 50
+            }).addTo(map);
+
+            const trail = L.polyline([], {
+                color: isIntl ? '#8b1e1e' : '#1e3a5f',
+                weight: 2,
+                opacity: 0.5,
+                dashArray: '2, 6'
+            }).addTo(map);
+
+            const flightData = {
+                id,
+                callsign,
+                isIntl,
+                startLat: startCity.lat,
+                startLon: startCity.lon,
+                destLat: endCity.lat,
+                destLon: endCity.lon,
+                destName: endCity.name,
+                duration: durationRealSeconds,
+                progress: initialProgress,
+                route: route,
+                status: 'active',
+                history: [startPosition],
+                marker,
+                trail
+            };
+
+            marker.on('click', () => selectFlight(flightData));
+            flights[id] = flightData;
+
+        }
+
+        function updateFlights(dt) {
+            for (let id in flights) {
+                const f = flights[id];
+
+                if (f.status !== 'active') continue;
+
+                f.progress += dt / f.duration;
+
+                if (f.progress >= 1) {
+                    f.progress = 1;
+
+                    const finalPosition = f.route[f.route.length - 1];
+                    f.marker.setLatLng(finalPosition);
+
+                    removeFlight(id, f, true);
+                    continue;
+                }
+
+                const routePosition = f.progress * (f.route.length - 1);
+                const index = Math.floor(routePosition);
+                const nextIndex = Math.min(index + 1, f.route.length - 1);
+                const segmentProgress = routePosition - index;
+
+                const current = f.route[index];
+                const next = f.route[nextIndex];
+
+                const currentPosition = [
+                    current[0] + (next[0] - current[0]) * segmentProgress,
+                    current[1] + (next[1] - current[1]) * segmentProgress
+                ];
+
+                f.marker.setLatLng(currentPosition);
+
+                f.history.push(currentPosition);
+
+                if (f.history.length > 8) {
+                    f.history.shift();
+                }
+
+                f.trail.setLatLngs(f.history);
+            }
+        }
+
+        function isOffMap(lat, lon) {
+            return (lat > -8.0 || lat < -47.0 || lon < 108.0 || lon > 158.0);
+        }
+
+        function removeFlight(id, f, recordLoss = false) {
+            map.removeLayer(f.marker);
+            map.removeLayer(f.trail);
+            
+            if (recordLoss && f.status === 'active') {
+                scoreLost++;
+                document.getElementById('score-incorrect').innerText = scoreLost;
+            }
+            
+            if (activeSelectedFlight && activeSelectedFlight.id === id) {
+                closeHUD();
+            }
+            delete flights[id];
+        }
+
+        // --- INTERACTION & GUESSING ---
+        function selectFlight(data) {
+            if (data.status !== 'active') return;
+
+            activeSelectedFlight = data;
+            
+            document.getElementById('idle-instruction').style.display = 'none';
+            const panel = document.getElementById('active-flight-panel');
+            panel.style.display = 'flex';
+            
+            document.getElementById('hud-callsign').innerText = data.callsign;
+            
+            const typeBadge = document.getElementById('hud-type');
+            typeBadge.innerText = data.isIntl ? "INTERNATIONAL" : "DOMESTIC";
+            typeBadge.className = data.isIntl ? "flight-type type-int" : "flight-type type-dom";
+            
+            const input = document.getElementById('guess-input');
+            input.value = "";
+            input.focus();
+        }
+
+        function closeHUD() {
+            activeSelectedFlight = null;
+            document.getElementById('active-flight-panel').style.display = 'none';
+            document.getElementById('idle-instruction').style.display = 'block';
+        }
+
+        function getEditDistance(a, b) {
+            if (a.length === 0) return b.length;
+            if (b.length === 0) return a.length;
+            let matrix = [];
+            for (let i = 0; i <= b.length; i++) { matrix[i] = [i]; }
+            for (let j = 0; j <= a.length; j++) { matrix[0][j] = j; }
+            for (let i = 1; i <= b.length; i++) {
+                for (let j = 1; j <= a.length; j++) {
+                    if (b.charAt(i - 1) == a.charAt(j - 1)) {
+                        matrix[i][j] = matrix[i - 1][j - 1];
+                    } else {
+                        matrix[i][j] = Math.min(matrix[i - 1][j - 1] + 1, Math.min(matrix[i][j - 1] + 1, matrix[i - 1][j] + 1));
+                    }
+                }
+            }
+            return matrix[b.length][a.length];
+        }
+
+        function submitGuess() {
+            if (!activeSelectedFlight) return;
+            const guess = document.getElementById('guess-input').value.toLowerCase().trim();
+            const actual = activeSelectedFlight.destName.toLowerCase().trim();
+            
+            let allowedTypos = actual.length > 5 ? 2 : 1;
+            let isCorrect = (guess === actual) || (getEditDistance(guess, actual) <= allowedTypos);
+            
+            if (isCorrect) {
+                scoreVerified++;
+                document.getElementById('score-correct').innerText = scoreVerified;
+                showStamp("VERIFIED", true, activeSelectedFlight.destName);
+            } else {
+                scoreLost++;
+                document.getElementById('score-incorrect').innerText = scoreLost;
+                showStamp("LOST", false, activeSelectedFlight.destName);
+            }
+
+            // Fade away logic for guessed flight
+            activeSelectedFlight.status = 'processed'; // Stop it from updating
+            const selectedElement = activeSelectedFlight.marker.getElement();
+            const selectedDot = selectedElement
+                ? selectedElement.querySelector('.flight-dot')
+                : null;
+
+            if (selectedDot) {
+                selectedDot.classList.add('fade-out');
+            }
+            activeSelectedFlight.trail.setStyle({opacity: 0});
+            
+            const flightId = activeSelectedFlight.id;
+            const flightRef = activeSelectedFlight;
+            
+            setTimeout(() => {
+                if (flights[flightId]) removeFlight(flightId, flightRef, false);
+            }, 500); // Remove from memory after fade animation completes
+
+            closeHUD();
+        }
+
+        document.getElementById('guess-input').addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') submitGuess();
+        });
+
+        function showStamp(mainText, isCorrect, actualDest) {
+            const stamp = document.getElementById('stamp-overlay');
+            document.getElementById('stamp-main').innerText = mainText;
+            document.getElementById('stamp-sub').innerText = `DEST: ${actualDest}`;
+            
+            if(isCorrect) {
+                stamp.classList.add('correct');
+            } else {
+                stamp.classList.remove('correct');
+            }
+            
+            stamp.classList.add('show');
+            setTimeout(() => { stamp.classList.remove('show'); }, 2000);
+        }
+
+        function restartGame() {
+            // Stop any existing animation loop.
+            isGameActive = false;
+            cancelAnimationFrame(mainLoop);
+
+            // Remove any remaining flight markers and trails.
+            if (map) {
+                for (let id in flights) {
+                    const f = flights[id];
+
+                    if (f.marker) map.removeLayer(f.marker);
+                    if (f.trail) map.removeLayer(f.trail);
+                }
+
+                flights = {};
+                activeSelectedFlight = null;
+
+                // Remove the existing Leaflet map completely.
+                map.remove();
+                map = null;
+            } else {
+                flights = {};
+                activeSelectedFlight = null;
+            }
+
+            // Reset game state.
+            scoreVerified = 0;
+            scoreLost = 0;
+            realTimeSeconds = 0;
+            lastTimestamp = 0;
+
+            // Reset dashboard.
+            document.getElementById('score-correct').innerText = '0';
+            document.getElementById('score-incorrect').innerText = '0';
+            document.getElementById('real-timer').innerText = '60:00 Remaining';
+
+            // Reset controller name.
+            document.getElementById('controller-name').value = '';
+            document.getElementById('hud-pax-name').innerText = 'Unknown';
+
+            // Reset HUD.
+            document.getElementById('guess-input').value = '';
+            closeHUD();
+
+            // Hide final screen.
+            document.getElementById('end-screen').style.display = 'none';
+
+            // Restore ticket screen.
+            document.getElementById('ticket').classList.remove('unfold');
+            document.getElementById('ticket-screen').style.display = 'flex';
+
+            // Hide the map until the player presses DEPART again.
+            document.getElementById('map-container').style.opacity = '0';
+        }
+
+        function endGame() {
+            isGameActive = false;
+            cancelAnimationFrame(mainLoop);
+            
+            document.getElementById('end-controller-name').innerText = document.getElementById('hud-pax-name').innerText;
+            document.getElementById('end-verified').innerText = scoreVerified;
+            document.getElementById('end-lost').innerText = scoreLost;
+            
+            document.getElementById('end-screen').style.display = 'flex';
+        }
+    </script>
+</body>
+</html>
