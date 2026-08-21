@@ -1,877 +1,1870 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en-AU">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Destination Unknown: Australian Edition</title>
-    
-    <!-- Leaflet CSS -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    
-    <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Courier+Prime:ital,wght@0,400;0,700;1,400&family=Playfair+Display:ital,wght@0,700;0,900;1,400&family=Libre+Barcode+39+Text&display=swap" rel="stylesheet">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#150d20">
+<title>SPACE CITY</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><path d='M4 28 C4 8 28 8 28 28 Z' fill='%236d6459'/></svg>">
+<style>
+/* ============================================================================
+   SPACE CITY — 1979 / alternate timeline
+   Palette is pulled straight out of the subject: wet concrete, a Moreton Bay
+   dusk going orange-to-violet, dying neon, and XXXX gold.
+   ========================================================================== */
+:root{
+  --concrete:      #9a9083;
+  --concrete-mid:  #6d6459;
+  --concrete-dark: #3b352e;
+  --dusk-top:      #241536;
+  --dusk-mid:      #6b3565;
+  --haze:          #e0714f;
+  --sun:           #ffcf6b;
+  --neon-cyan:     #4ff2d8;
+  --neon-pink:     #ff4f9e;
+  --gold:          #f5c542;
+  --suit:          #e9e5da;
+  --racing:        #ff5b2e;
+  --ink:           #150d20;
 
-    <style>
-        :root {
-            --parchment-light: #f4efeb;
-            --parchment-dark: #a3978c;
-            --ink: #1a1511;
-            --red-ink: #8b1e1e;
-            --blue-ink: #1e3a5f;
-            --success-ink: #2e7d32;
-            --fail-ink: #555555;
-        }
+  --display: "Haettenschweiler","Arial Narrow Bold","Franklin Gothic Demi Cond",Impact,"Anton",sans-serif;
+  --mono: ui-monospace,SFMono-Regular,Menlo,Consolas,"Courier New",monospace;
+}
 
-        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
 
-        body {
-            background: radial-gradient(circle, #fcfaf8 10%, #bfb4a8 100%);
-            font-family: 'Courier Prime', monospace;
-            color: var(--ink);
-            overflow: hidden;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-        }
+html,body{
+  margin:0;padding:0;height:100%;width:100%;
+  background:var(--ink);
+  overflow:hidden;
+  overscroll-behavior:none;
+  touch-action:none;              /* kill pinch-zoom + rubber-band scroll */
+  -webkit-user-select:none;user-select:none;
+  font-family:var(--mono);
+  color:var(--suit);
+}
 
-        /* --- THE MAP --- */
-        #map-container {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background-color: var(--parchment-light);
-            z-index: 1; opacity: 0; transition: opacity 1.5s ease-in;
-        }
+/* ---- stage: letterboxed 16:9 play area ---------------------------------- */
+#stage{
+  position:fixed;inset:0;
+  height:100vh;height:100dvh;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  background:radial-gradient(ellipse at 50% 40%, #2a1c3a 0%, var(--ink) 70%);
+}
+#frame{position:relative;line-height:0;flex:0 0 auto;}
+/* Portrait: canvas on top, arcade deck below. Landscape: canvas centred. */
+body.portrait #stage{justify-content:flex-start;}
 
-        #map { width: 100%; height: calc(100% - 120px); background: #dcd2c6; }
+canvas#game{
+  display:block;
+  image-rendering:pixelated;
+  image-rendering:crisp-edges;
+  background:#000;
+  box-shadow:0 0 40px rgba(255,79,158,.18);
+}
+body.landscape canvas#game{box-shadow:0 0 0 2px #000, 0 0 40px rgba(255,79,158,.18);}
+/* Mood-ring chromatic hit: brief colour-shift across the whole canvas. */
+canvas#game.ring{animation:chroma 900ms ease-out 1;}
+@keyframes chroma{
+  0%  {filter:hue-rotate(0deg) saturate(1);}
+  15% {filter:hue-rotate(90deg) saturate(2.4) contrast(1.15);}
+  40% {filter:hue-rotate(220deg) saturate(2) contrast(1.1);}
+  70% {filter:hue-rotate(320deg) saturate(1.6);}
+  100%{filter:hue-rotate(0deg) saturate(1);}
+}
+/* scanline + vignette veil over the canvas */
+#veil{
+  position:absolute;inset:0;pointer-events:none;
+  background:
+    repeating-linear-gradient(to bottom, rgba(0,0,0,.16) 0 1px, rgba(0,0,0,0) 1px 3px),
+    radial-gradient(ellipse at 50% 50%, rgba(0,0,0,0) 55%, rgba(0,0,0,.55) 100%);
+  mix-blend-mode:multiply;
+}
 
-        .leaflet-tile-pane {
-            filter: sepia(0.6) contrast(1.25) brightness(0.95) hue-rotate(-15deg);
-            opacity: 0.9;
-        }
+/* ---- HUD ---------------------------------------------------------------- */
+#hud{
+  position:absolute;top:0;left:0;right:0;
+  display:flex;justify-content:flex-start;align-items:flex-start;
+  padding:calc(8px + env(safe-area-inset-top)) 10px 8px calc(10px + env(safe-area-inset-left));
+  gap:10px;pointer-events:none;line-height:1.25;
+  font-size:11px;letter-spacing:.08em;text-transform:uppercase;
+  text-shadow:0 1px 0 #000;
+}
+#hud .block{display:flex;flex-direction:column;gap:4px;}
+#hud .label{font-size:8px;opacity:.6;letter-spacing:.22em;}
+#hud .val{font-size:15px;color:var(--gold);letter-spacing:.06em;}
+#integrity{
+  width:104px;height:9px;border:1px solid rgba(233,229,218,.55);
+  padding:1px;background:rgba(0,0,0,.45);
+}
+#integrityFill{height:100%;width:100%;background:var(--neon-cyan);transition:width .18s linear;}
+#integrity.low #integrityFill{background:var(--racing);}
+#hud .row{display:flex;gap:18px;align-items:flex-start;}
+#hud .val.alt{color:var(--neon-cyan);font-size:13px;}
+#sysBar{
+  position:fixed;z-index:30;display:flex;gap:6px;
+  top:calc(8px + env(safe-area-inset-top));
+  right:calc(10px + env(safe-area-inset-right));
+  flex-wrap: wrap; justify-content: flex-end;
+  max-width: 60vw;
+}
+#sysBar button{
+  font-family:var(--mono);font-size:9px;letter-spacing:.14em;
+  color:var(--suit);background:rgba(0,0,0,.5);
+  border:1px solid rgba(233,229,218,.35);border-radius:2px;
+  padding:5px 7px;cursor:pointer;text-transform:uppercase;
+}
+#sysBar button:hover{border-color:var(--neon-cyan);color:var(--neon-cyan);}
 
-        /* Flight Markers
-           IMPORTANT: Leaflet owns the transform on the marker wrapper.
-           Never animate/rotate that wrapper. */
-        .flight-marker-wrapper {
-            background: transparent !important;
-            border: none !important;
-            width: 24px !important;
-            height: 24px !important;
-            margin: 0 !important;
-            overflow: visible !important;
-        }
+/* ---- screens (start / game over) ---------------------------------------- */
+.screen{
+  position:absolute;inset:0;z-index:20;
+  display:none;flex-direction:column;align-items:center;justify-content:center;
+  padding:calc(16px + env(safe-area-inset-top)) 14px calc(16px + env(safe-area-inset-bottom));
+  text-align:center;overflow-y:auto;overscroll-behavior:contain;
+  background:linear-gradient(180deg, rgba(21,13,32,.92) 0%, rgba(21,13,32,.97) 100%);
+  line-height:1.4;
+}
+.screen.on{display:flex;}
 
-        .flight-dot {
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 24px;
-            height: 24px;
-            border-radius: 50%;
-            box-shadow: 0 0 6px rgba(0,0,0,0.6);
-            animation: inkPulse 1.5s infinite alternate;
-            cursor: pointer;
-            border: 2px solid #fff;
-            transition: opacity 0.5s ease;
-            transform-origin: 50% 50%;
-        }
+/* The signature: a Binishell dome arch holding the signage. Grunge updated. */
+.dome-wrap {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  margin-bottom: 10px;
+}
+.dome-bg {
+  position: absolute;
+  bottom: 0;
+  border-radius: 50% 50% 0 0 / 62% 62% 0 0;
+  background: linear-gradient(180deg, rgba(154,144,131,.20), rgba(154,144,131,.03) 70%);
+  border: 2px solid #3b352e;
+  border-bottom: none;
+  z-index: 0;
+}
+.dome-bg-left {
+  width: 180px; height: 110px;
+  left: -40px;
+  opacity: 0.6;
+}
+.dome-bg-right {
+  width: 140px; height: 80px;
+  right: -25px;
+  opacity: 0.4;
+}
+.dome{
+  position:relative;
+  z-index: 1;
+  width:min(78vw,300px);
+  border:2px solid #50483e;
+  border-bottom:none;
+  border-radius:50% 50% 0 0 / 62% 62% 0 0;
+  background:
+    radial-gradient(ellipse at 80% 20%, rgba(0,0,0,.4) 0%, transparent 40%),
+    radial-gradient(ellipse at 15% 85%, rgba(180,60,20,.15) 0%, transparent 60%),
+    linear-gradient(180deg, rgba(154,144,131,.25), rgba(154,144,131,.05) 70%);
+  padding:26px 16px 14px;
+  overflow:hidden;
+  box-shadow: inset 0 0 24px rgba(0,0,0,.6);
+}
+.dome::before{ /* dome rib seams & wear */
+  content:"";position:absolute;inset:0;
+  background:
+    repeating-linear-gradient(45deg, rgba(0,0,0,0) 0px, rgba(0,0,0,0) 8px, rgba(0,0,0,.08) 8px, rgba(0,0,0,.08) 12px),
+    repeating-linear-gradient(90deg, rgba(154,144,131,.15) 0 1px, rgba(0,0,0,0) 1px 22px);
+  pointer-events:none;
+}
+.dome::after{ /* cracks */
+  content:""; position:absolute; inset:0; pointer-events:none;
+  background: linear-gradient(110deg, transparent 40%, rgba(20,10,10,.3) 41%, transparent 42%);
+}
+.eyebrow{
+  font-size:8px;letter-spacing:.34em;text-transform:uppercase;
+  color:#9a9083;margin:0 0 6px; text-shadow: 0 1px 2px #000;
+}
+h1{
+  font-family:var(--display);
+  font-size:clamp(38px,12vw,62px);
+  line-height:.86;margin:0;
+  letter-spacing:.02em;text-transform:uppercase;
+  color:#dfd6cb;
+  text-shadow:
+    2px 2px 0px rgba(0,0,0,0.8),
+    0 0 5px var(--neon-pink),
+    0 0 18px rgba(255,79,158,.5);
+  animation:flicker 7s infinite steps(1);
+}
+@keyframes flicker{
+  0%,96%,100%{opacity:1;}
+  96.5%{opacity:.35;}
+  97.2%{opacity:1;}
+  97.6%{opacity:.5;}
+  98%{opacity:1;}
+}
+.sub{
+  margin:8px 0 0;font-size:9px;letter-spacing:.18em;
+  color:var(--neon-cyan);text-transform:uppercase;opacity:.75;
+  text-shadow: 0 1px 2px #000;
+}
+.plaque{
+  max-width:330px;margin:14px auto 0;
+  font-size:10px;line-height:1.65;color:#bbaea1;letter-spacing:.02em;
+}
+.plaque b{color:var(--gold);font-weight:400;}
 
-        .flight-marker-wrapper.domestic .flight-dot {
-            background-color: var(--blue-ink);
-        }
+/* marquee — the old shopping-centre sign, now running high scores */
+.marquee{
+  width:min(88vw,340px);margin:14px auto 0;
+  border-top:1px solid rgba(154,144,131,.35);
+  border-bottom:1px solid rgba(154,144,131,.35);
+  background:rgba(0,0,0,.4);
+  overflow:hidden;position:relative;height:22px;
+}
+.marquee .track{
+  position:absolute;white-space:nowrap;top:0;
+  font-size:10px;line-height:22px;letter-spacing:.14em;
+  color:var(--gold);text-transform:uppercase;
+  will-change:transform;
+}
+.marquee .track.idle{
+  position:static;text-align:center;color:var(--concrete);
+  animation:none;transform:none;
+}
+.marquee .track em{font-style:normal;color:var(--neon-cyan);}
 
-        .flight-marker-wrapper.international .flight-dot {
-            background-color: var(--red-ink);
-        }
+/* buttons */
+.btn{
+  font-family:var(--display);text-transform:uppercase;
+  font-size:20px;letter-spacing:.08em;
+  color:var(--ink);background:var(--gold);
+  border:none;border-radius:2px;
+  padding:11px 30px;margin-top:16px;cursor:pointer;
+  box-shadow:0 3px 0 #8a6a12;
+}
+.btn:active{transform:translateY(2px);box-shadow:0 1px 0 #8a6a12;}
+.btn.ghost{
+  background:transparent;color:var(--suit);
+  border:1px solid rgba(233,229,218,.45);box-shadow:none;
+  font-size:14px;padding:8px 18px;
+}
+.btn:focus-visible,#muteBtn:focus-visible,input:focus-visible{
+  outline:2px solid var(--neon-cyan);outline-offset:2px;
+}
+.hint{margin-top:12px;font-size:9px;letter-spacing:.14em;color:var(--concrete);text-transform:uppercase;}
 
-        .flight-marker-wrapper .flight-dot.fade-out {
-            opacity: 0 !important;
-            pointer-events: none;
-        }
+/* game over entry form */
+.tally{display:flex;gap:20px;justify-content:center;margin:6px 0 12px;}
+.tally div{display:flex;flex-direction:column;gap:2px;}
+.tally .k{font-size:8px;letter-spacing:.2em;color:var(--concrete);text-transform:uppercase;}
+.tally .v{font-family:var(--display);font-size:30px;color:var(--gold);line-height:1;}
+.entry{display:flex;flex-direction:column;gap:7px;width:min(80vw,260px);margin-top:4px;}
+.entry input{
+  font-family:var(--mono);font-size:12px;letter-spacing:.06em;
+  padding:9px 10px;background:rgba(0,0,0,.5);color:var(--suit);
+  border:1px solid rgba(154,144,131,.5);border-radius:2px;
+}
+.entry input::placeholder{color:#6d6459;}
+.status{margin-top:10px;font-size:9px;letter-spacing:.12em;color:var(--concrete);text-transform:uppercase;min-height:12px;}
+.status.warn{color:var(--racing);}
+.status.ok{color:var(--neon-cyan);}
 
-        @keyframes inkPulse {
-            from {
-                box-shadow: 0 0 4px rgba(0,0,0,0.4);
-            }
-            to {
-                box-shadow: 0 0 12px rgba(0,0,0,0.8);
-            }
-        }
+/* ---- touch HUD ---------------------------------------------------------- */
+#touch{position:fixed;inset:0;pointer-events:none;display:none;z-index:5;}
+#touch.on{display:block;}
+body.portrait #touch{display:none;}
 
-        /* --- TOP LOGO OVERLAY --- */
-        #logo-overlay {
-            position: absolute;
-            top: 20px;
-            left: 20px;
-            z-index: 1000;
-            text-align: left;
-            pointer-events: none;
-            background: rgba(244, 239, 235, 0.96);
-            padding: 12px 16px;
-            border: 1px solid rgba(26, 21, 17, 0.35);
-            box-shadow: 0 5px 15px rgba(0,0,0,0.18);
-            border-radius: 4px;
-        }
-        #logo-overlay h1 { font-family: 'Playfair Display', serif; font-size: 1.6rem; text-transform: uppercase; letter-spacing: 1px; color: var(--ink); margin-bottom: 2px; text-shadow: 1px 1px 3px rgba(255,255,255,0.8); }
-        #logo-overlay h3 { font-family: 'Playfair Display', serif; color: var(--red-ink); font-size: 0.8rem; letter-spacing: 3px; text-transform: uppercase; text-shadow: 1px 1px 2px rgba(255,255,255,0.8); }
+/* ---- portrait arcade deck ---------------------------------------------- */
+#deck{
+  display:none;width:100%;height:var(--deckH,200px);flex:0 0 auto;
+  align-items:center;justify-content:space-between;gap:12px;
+  padding:8px calc(16px + env(safe-area-inset-right))
+          calc(12px + env(safe-area-inset-bottom)) calc(16px + env(safe-area-inset-left));
+  background:linear-gradient(180deg,#2d2721 0%,#16120f 100%);
+  border-top:2px solid #453d33;
+  box-shadow:inset 0 2px 0 rgba(233,229,218,.07);
+}
+body.portrait #deck{display:flex;}
+#deckLeft,#deckRight{display:flex;gap:14px;align-items:center;}
+#deckPlate{
+  flex:1 1 auto;font-family:var(--display);font-size:13px;line-height:.9;
+  letter-spacing:.1em;text-transform:uppercase;text-align:center;
+  color:#4a4238;text-shadow:0 1px 0 rgba(233,229,218,.09);
+}
 
-        /* --- START SCREEN TICKET --- */
-        #ticket-screen {
-            position: absolute; z-index: 100;
-            width: 100%; height: 100%;
-            display: flex; justify-content: center; align-items: center;
-            perspective: 1000px;
-        }
+body.portrait .pad{
+  position:static;
+  width:clamp(64px,18.5vw,90px);height:clamp(64px,18.5vw,90px);
+  border-radius:18px;font-size:26px;
+}
+body.portrait #bJump{
+  width:clamp(82px,25vw,114px);height:clamp(82px,25vw,114px);
+  border-radius:50%;font-size:32px;
+}
 
-        .ticket {
-            background: #fffdfa;
-            width: 550px; max-width: 90%;
-            border-radius: 16px;
-            padding: 40px;
-            box-shadow: 0 25px 60px rgba(0,0,0,0.5);
-            transform-style: preserve-3d;
-            transition: transform 1.2s cubic-bezier(0.6, -0.28, 0.735, 0.045), opacity 1s ease-in;
-            border: 1px solid #d4cdc3;
-            background-image: radial-gradient(rgba(0,0,0,0.04) 1px, transparent 1px);
-            background-size: 10px 10px;
-        }
+.pad{
+  position:absolute;pointer-events:auto;
+  display:flex;align-items:center;justify-content:center;
+  font-size:22px;color:rgba(233,229,218,.9);
+  background:rgba(233,229,218,.15);
+  border:2px solid rgba(233,229,218,.35);
+  backdrop-filter:blur(4px);
+  box-shadow: 0 5px 0 rgba(0,0,0,.4), inset 0 2px rgba(255,255,255,.2);
+  touch-action:none;user-select:none;
+  transform: translateY(0);
+  transition: transform 0.05s, box-shadow 0.05s, background 0.05s;
+}
+.pad.down{
+  background:rgba(79,242,216,.35);
+  border-color:var(--neon-cyan);
+  transform: translateY(5px);
+  box-shadow: 0 0px 0 rgba(0,0,0,.4), inset 0 2px rgba(0,0,0,.3);
+}
 
-        .ticket.unfold { transform: rotateX(90deg) scale(1.2); opacity: 0; pointer-events: none; }
+#bLeft, #bRight{width:62px;height:62px;border-radius:12px;bottom:calc(18px + env(safe-area-inset-bottom));}
+#bLeft{left:calc(14px + env(safe-area-inset-left));}
+#bRight{left:calc(96px + env(safe-area-inset-left));}
+#bDuck{
+  width:56px;height:52px;border-radius:12px;
+  bottom:calc(18px + env(safe-area-inset-bottom));
+  right:calc(110px + env(safe-area-inset-right));
+}
+#bJump{
+  width:80px;height:80px;border-radius:50%;
+  bottom:calc(14px + env(safe-area-inset-bottom));
+  right:calc(14px + env(safe-area-inset-right));
+  font-size:26px;color:var(--gold);
+  background:rgba(245,197,66,.2);border-color:rgba(245,197,66,.6);
+}
+#bJump.down{
+  background:rgba(245,197,66,.5);
+  border-color:var(--gold);
+}
 
-        .ticket-header { border-bottom: 2px dashed var(--ink); padding-bottom: 15px; margin-bottom: 25px; text-align: center; }
-        .ticket-header h1 { font-family: 'Playfair Display', serif; font-size: 2.2rem; text-transform: uppercase; letter-spacing: 1px; color: var(--ink); }
-        .ticket-header h3 { font-family: 'Playfair Display', serif; color: var(--red-ink); font-size: 1rem; letter-spacing: 4px; text-transform: uppercase;}
-        
-        .ticket-body { display: flex; justify-content: space-between; margin-bottom: 15px; }
-        .ticket-block { text-align: left; flex: 1; }
-        .ticket-block small { color: #666; text-transform: uppercase; font-size: 0.75rem; letter-spacing: 1px; }
-        .ticket-block p { font-size: 1.2rem; font-weight: bold; margin-top: 5px; }
-        
-        .passenger-input {
-            background: transparent; border: none; border-bottom: 2px solid var(--ink);
-            font-family: 'Courier Prime', monospace; font-size: 1.2rem; font-weight: bold;
-            color: var(--red-ink); width: 90%; padding: 5px 0; outline: none;
-        }
-        
-        .barcode { 
-            font-family: 'Libre Barcode 39 Text', cursive; 
-            font-size: 4rem; color: var(--ink); text-align: center; 
-            margin-bottom: 25px; transform: scaleY(1.3); margin-top: 15px;
-        }
-
-        .btn-board {
-            display: block; width: 100%; padding: 18px;
-            background: var(--red-ink); color: #fff; border-radius: 8px;
-            border: none; font-family: 'Courier Prime', monospace;
-            font-size: 1.2rem; font-weight: bold; cursor: pointer;
-            letter-spacing: 3px; text-transform: uppercase; transition: 0.2s;
-        }
-        .btn-board:hover { background: #681515; transform: translateY(-2px); box-shadow: 0 5px 15px rgba(139, 30, 30, 0.4); }
-
-        /* --- DASHBOARD --- */
-        #dashboard {
-            position: absolute; bottom: 0; left: 0; width: 100%; height: 120px;
-            background: var(--parchment-light); border-top: 2px solid var(--ink);
-            z-index: 50; display: flex; align-items: center; justify-content: space-between;
-            padding: 0 20px; box-shadow: 0 -10px 30px rgba(0,0,0,0.2);
-        }
-
-        .dash-section { flex: 1; }
-
-        /* Left: Tally */
-        .tally-board { border-left: 4px solid var(--red-ink); padding-left: 15px; }
-        .tally-title { font-family: 'Playfair Display', serif; font-size: 1.1rem; text-transform: uppercase; margin-bottom: 5px; font-weight: 900;}
-        .tally-score { font-size: 0.95rem; line-height: 1.4; color: #444; }
-        .tally-score span.correct { color: var(--success-ink); font-weight: bold; font-size: 1.1rem;}
-        .tally-score span.incorrect { color: var(--red-ink); font-weight: bold; font-size: 1.1rem;}
-
-        /* Center: Action Area */
-        .flight-action-area {
-            flex: 2; text-align: center; background: rgba(0,0,0,0.03); 
-            border: 1px dashed #aaa; padding: 10px 15px; border-radius: 8px;
-            height: 95px; display: flex; flex-direction: column; justify-content: center;
-            margin: 0 15px; position: relative;
-        }
-        
-        #idle-instruction { font-style: italic; color: #666; font-size: 0.9rem; }
-        
-        #active-flight-panel { display: none; width: 100%; align-items: center; justify-content: space-between; gap: 15px; }
-        .flight-stats { text-align: left; font-size: 0.8rem; line-height: 1.3; color: #444;}
-        .flight-stats strong { color: var(--ink); font-size: 1.1rem; }
-        .flight-type { font-size: 0.7rem; text-transform: uppercase; font-weight: bold; padding: 2px 6px; border-radius: 4px; display: inline-block; margin-bottom: 4px;}
-        .type-dom { background: var(--blue-ink); color: #fff; }
-        .type-int { background: var(--red-ink); color: #fff; }
-        
-        .input-group { display: flex; flex-grow: 1; height: 45px;}
-        #guess-input {
-            flex-grow: 1; padding: 10px; font-family: 'Courier Prime', monospace; font-size: 1rem;
-            border: 2px solid var(--ink); border-right: none; background: #fff; text-transform: uppercase; outline: none;
-            border-radius: 6px 0 0 6px;
-        }
-        .btn-guess {
-            padding: 0 20px; background: var(--ink); color: #fff; border: 2px solid var(--ink);
-            font-family: 'Courier Prime', monospace; font-weight: bold; cursor: pointer; transition: 0.2s;
-            border-radius: 0 6px 6px 0;
-        }
-        .btn-guess:hover { background: var(--red-ink); border-color: var(--red-ink); }
-
-        /* Right: Timer & Identity */
-        .nav-details { text-align: right; border-right: 4px solid var(--ink); padding-right: 15px; }
-        .game-time { font-family: 'Playfair Display', serif; font-size: 1.4rem; font-weight: 900; color: var(--ink); }
-        .timer { font-size: 0.9rem; color: var(--red-ink); margin-bottom: 5px; font-weight: bold;}
-        .identity { font-size: 0.8rem; color: #555; text-transform: uppercase; margin-bottom: 5px; }
-        
-        .btn-arrive {
-            background: transparent; color: var(--red-ink); border: 1px solid var(--red-ink);
-            padding: 4px 10px; font-family: 'Courier Prime', monospace; font-weight: bold;
-            cursor: pointer; font-size: 0.7rem; border-radius: 4px; transition: 0.2s;
-        }
-        .btn-arrive:hover { background: var(--red-ink); color: #fff; }
-
-        /* --- INK STAMP OVERLAY --- */
-        #stamp-overlay {
-            position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%) scale(2);
-            font-family: 'Playfair Display', serif; font-weight: 900; font-size: 3rem;
-            color: var(--red-ink); border: 6px solid var(--red-ink); padding: 10px 30px;
-            border-radius: 8px; opacity: 0; pointer-events: none; z-index: 200;
-            text-align: center; text-transform: uppercase; line-height: 1.1;
-            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.3s;
-            background: rgba(244, 239, 235, 0.9);
-        }
-        #stamp-overlay small { display: block; font-family: 'Courier Prime', monospace; font-size: 1rem; margin-top: 8px; font-weight: normal; color: var(--ink); }
-        #stamp-overlay.show { transform: translate(-50%, -50%) scale(1) rotate(-5deg); opacity: 1; }
-        #stamp-overlay.correct { color: var(--success-ink); border-color: var(--success-ink); }
-
-        /* --- FINAL DEBRIEF SCREEN --- */
-        #end-screen {
-            position: absolute; z-index: 500; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(26, 21, 17, 0.9); display: none; justify-content: center; align-items: center;
-        }
-        .end-card {
-            background: var(--parchment-light); padding: 40px; border: 2px dashed var(--ink);
-            text-align: center; max-width: 500px; border-radius: 8px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.8);
-        }
-        .end-card h1 { font-family: 'Playfair Display', serif; color: var(--ink); margin-bottom: 15px; font-size: 2.2rem;}
-        .end-card p { font-size: 1.1rem; line-height: 1.5; margin-bottom: 20px; }
-        .end-stats { font-size: 1.4rem; font-weight: bold; margin-bottom: 25px; border-top: 1px solid #ccc; border-bottom: 1px solid #ccc; padding: 15px 0;}
-        .end-stats span.grn { color: var(--success-ink); }
-        .end-subtle { font-size: 0.85rem; color: #888; font-style: italic; margin-bottom: 30px; }
-
-        @media (max-width: 768px) {
-            #dashboard { flex-direction: column; height: auto; padding: 15px; gap: 10px; }
-            #map { height: calc(100% - 200px); }
-            .dash-section { width: 100%; border: none !important; padding: 0 !important; text-align: center !important; }
-            .tally-board { display: flex; justify-content: space-around; border-bottom: 1px dashed #ccc !important; padding-bottom: 10px !important;}
-            .flight-action-area { height: auto; margin: 0; }
-            #logo-overlay h1 { font-size: 1.2rem; }
-        }
-    </style>
+@media (max-height:420px){
+  .plaque{display:none;}
+  h1{font-size:clamp(30px,9vw,44px);}
+}
+@media (prefers-reduced-motion:reduce){
+  h1{animation:none;}
+  canvas#game.ring{animation:none;}
+  .marquee .track{animation:none !important;}
+}
+</style>
 </head>
 <body>
 
-    <!-- START SCREEN -->
-    <div id="ticket-screen">
-        <div class="ticket" id="ticket">
-            <div class="ticket-header">
-                <h1>Destination Unknown</h1>
-                <h3>Australian Edition</h3>
-            </div>
-            <div class="ticket-body">
-                <div class="ticket-block">
-                    <small>Pilot</small>
-                    <p>Trent Sellars</p>
-                </div>
-                <div class="ticket-block" style="text-align: right;">
-                    <small>Flight Controller</small>
-                    <input type="text" id="controller-name" class="passenger-input" placeholder="Enter Name..." autocomplete="off">
-                </div>
-            </div>
-            <div class="barcode">12111894</div>
-            <button class="btn-board" onclick="startGame()">DEPART</button>
+<div id="stage">
+  <div id="frame">
+    <canvas id="game" width="480" height="270" aria-label="Space City game"></canvas>
+    <div id="veil"></div>
+
+    <!-- ================= HUD ================= -->
+    <div id="hud">
+      <div class="block">
+        <div class="row">
+          <div>
+            <div class="label">Score</div>
+            <div class="val" id="hScore">0</div>
+          </div>
+          <div>
+            <div class="label">Distance</div>
+            <div class="val alt" id="hDist">0m</div>
+          </div>
         </div>
+        <div>
+          <div class="label">Suit integrity</div>
+          <div id="integrity"><div id="integrityFill"></div></div>
+        </div>
+      </div>
     </div>
 
-    <!-- MAP CONTAINER -->
-    <div id="map-container">
-        
-        <div id="logo-overlay">
-            <h1>Destination Unknown</h1>
-            <h3>Australian Edition</h3>
-        </div>
+  </div>
 
-        <div id="map"></div>
-        
-        <!-- FIXED DASHBOARD -->
-        <div id="dashboard">
-            <!-- Left: Tally -->
-            <div class="dash-section tally-board">
-                <div class="tally-title">Flight Log</div>
-                <div class="tally-score">
-                    Verified: <span class="correct" id="score-correct">0</span><br>
-                    Lost: <span class="incorrect" id="score-incorrect">0</span>
-                </div>
-            </div>
+  <!-- ============== PORTRAIT ARCADE DECK ============== -->
+  <div id="deck">
+    <div id="deckLeft"></div>
+    <div id="deckPlate">Space<br>City</div>
+    <div id="deckRight"></div>
+  </div>
 
-            <!-- Center: Action Area -->
-            <div class="dash-section flight-action-area">
-                <div id="idle-instruction">Tap an active flight on the map to determine its destination before it leaves airspace.</div>
-                
-                <div id="active-flight-panel">
-                    <div class="flight-stats">
-                        <span class="flight-type" id="hud-type">DOMESTIC</span><br>
-                        <strong id="hud-callsign">QFA432</strong>
-                    </div>
-                    <div class="input-group">
-                        <input type="text" id="guess-input" placeholder="Destination City..." autocomplete="off">
-                        <button class="btn-guess" onclick="submitGuess()">VERIFY</button>
-                    </div>
-                </div>
-            </div>
+  <!-- ================= START SCREEN ================= -->
+  <div class="screen on" id="startScreen">
+    <div class="dome-wrap">
+      <div class="dome-bg dome-bg-left"></div>
+      <div class="dome-bg dome-bg-right"></div>
+      <div class="dome">
+        <p class="eyebrow">Anzac Ave · Kallangur</p>
+        <h1>Space<br>City</h1>
+        <p class="sub">THE DOMES RETURN</p>
+      </div>
+    </div>
+    <p class="plaque">
+      It's 1979, you drove straight off the track at Whiteside and ended up in the Binishells of Space City, Kallangur. Collect the nostalgia, avoid the wild, see how long you can last.
+    </p>
 
-            <!-- Right: Timer & Identity -->
-            <div class="dash-section nav-details">
-                <div class="timer" id="real-timer">60:00 Remaining</div>
-                <div class="identity">
-                    FLIGHT CONTROLLER: <span id="hud-pax-name">Unknown</span>
-                </div>
-                <button class="btn-arrive" onclick="endGame()">ARRIVE</button>
-            </div>
-        </div>
+    <div class="marquee" id="marquee">
+      <div class="track idle" id="marqueeTrack">Loading high scores…</div>
     </div>
 
-    <!-- INK STAMP -->
-    <div id="stamp-overlay">
-        <span id="stamp-main">VERIFIED</span>
-        <small id="stamp-sub">MELBOURNE</small>
+    <button class="btn" id="playBtn" type="button">ENTER</button>
+    <p class="hint" id="controlHint">← → move · ↑ jump · ↓ duck &amp; slide</p>
+  </div>
+
+  <!-- ================= INFO SCREEN ================= -->
+  <div class="screen" id="infoScreen">
+    <p class="eyebrow">Survival Guide</p>
+    <h1 style="font-size:clamp(30px,9vw,46px); color:var(--neon-cyan)">How to survive</h1>
+    <div style="text-align:left; font-size:12px; margin:20px 0; line-height:1.7; color:var(--suit); max-width: 320px; text-shadow:0 1px 2px #000;">
+       <p><strong style="color:var(--neon-cyan)">COLLECT:</strong><br>
+       📼 <b style="color:var(--concrete)">Cassettes</b> (+5)<br>
+       🌋 <b style="color:var(--concrete)">Lava Lamps</b> (+10)<br>
+       💍 <b style="color:var(--concrete)">Mood Rings</b> (Ghost Speed for 10s!)<br>
+       🍺 <b style="color:var(--concrete)">XXXX Gold</b> (+25% Suit Integrity)</p>
+       
+       <p><strong style="color:var(--racing)">AVOID & STOMP:</strong><br>
+       🕷️ <b style="color:var(--concrete)">Spiders</b> (Venom slows you. Stomp for +15 pts)<br>
+       🦘 <b style="color:var(--concrete)">Roos</b> (Stomp 'em or take heavy 35% damage!)<br>
+       🛹 <b style="color:var(--concrete)">Teens</b> (Instant Game Over - Avoid entirely!)</p>
+       
+       <p><strong style="color:var(--gold)">MOVEMENT:</strong><br>
+       Tap ▲ to hop, hold to float higher.<br>
+       Hold ▼ while running to slide under low gaps.</p>
+    </div>
+    <button class="btn ghost" id="resumeBtn" type="button">Resume</button>
+  </div>
+
+  <!-- ================= GAME OVER SCREEN ================= -->
+  <div class="screen" id="overScreen">
+    <p class="eyebrow">Suit integrity failed</p>
+    <h1 style="font-size:clamp(30px,9vw,46px)">Wasted<br>in the dome</h1>
+
+    <div class="tally">
+      <div><span class="k">Score</span><span class="v" id="oScore">0</span></div>
+      <div><span class="k">Distance</span><span class="v" id="oDist">0m</span></div>
+      <div><span class="k">Artifacts</span><span class="v" id="oItems">0</span></div>
     </div>
 
-    <!-- FINAL DEBRIEF SCREEN -->
-    <div id="end-screen">
-        <div class="end-card">
-            <h1>Shift Complete</h1>
-            <p>Thank you for your service to Australian airspace, <strong id="end-controller-name">Controller</strong>.</p>
-            <div class="end-stats">
-                Total Flights Verified: <span class="grn" id="end-verified">0</span>
-            </div>
-            <div class="end-subtle">
-                (And <span id="end-lost">0</span> flights permanently lost to the void...)
-            </div>
-            <button class="btn-board" onclick="restartGame()">START NEW SHIFT</button>
-        </div>
+    <!-- Removed suburb input field here -->
+    <div class="entry" id="entryForm">
+      <input id="fName" type="text" maxlength="14" placeholder="First name" autocomplete="given-name" enterkeyhint="done">
+      <button class="btn" id="submitBtn" type="button">Post score</button>
     </div>
 
-    <!-- Leaflet JS -->
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <p class="status" id="overStatus"></p>
+    <button class="btn ghost" id="againBtn" type="button">Run it again</button>
+  </div>
+</div>
 
-    <script>
-        // --- GAME ENGINE STATE ---
-        let map;
-        let flights = {}; 
-        let activeSelectedFlight = null;
-        
-        let scoreVerified = 0;
-        let scoreLost = 0;
-        
-        // Time Variables
-        const REAL_TIME_LIMIT = 3600; // 60 minutes real time
-        let realTimeSeconds = 0;
-        let mainLoop;
-        let lastTimestamp = 0;
-        let isGameActive = false;
+<div id="sysBar">
+  <button id="infoBtn" type="button" style="display:none;">Info</button>
+  <button id="endBtn" type="button" style="display:none;">End Game</button>
+  <button id="muteBtn" type="button">Snd: on</button>
+  <button id="musicBtn" type="button">Mus: on</button>
+</div>
 
-        // --- DATABASES ---
-        const ausCities = [
-            { name: "Sydney", lat: -33.8688, lon: 151.2093 },
-            { name: "Melbourne", lat: -37.8136, lon: 144.9631 },
-            { name: "Brisbane", lat: -27.4698, lon: 153.0251 },
-            { name: "Perth", lat: -31.9505, lon: 115.8605 },
-            { name: "Adelaide", lat: -34.9285, lon: 138.6007 },
-            { name: "Hobart", lat: -42.8821, lon: 147.3272 },
-            { name: "Darwin", lat: -12.4634, lon: 130.8456 },
-            { name: "Cairns", lat: -16.9203, lon: 145.7709 },
-            { name: "Canberra", lat: -35.2809, lon: 149.1300 }
-        ];
+<!-- ================= TOUCH CONTROLS ================= -->
+<div id="touch">
+  <div class="pad" id="bLeft"  role="button" aria-label="Move left">◄</div>
+  <div class="pad" id="bRight" role="button" aria-label="Move right">►</div>
+  <div class="pad" id="bDuck"  role="button" aria-label="Duck">▼</div>
+  <div class="pad" id="bJump"  role="button" aria-label="Jump">▲</div>
+</div>
 
-        const intlCities = [
-            { name: "Singapore", lat: 1.3521, lon: 103.8198 },
-            { name: "Auckland", lat: -36.8485, lon: 174.7633 },
-            { name: "Los Angeles", lat: 34.0522, lon: -118.2437 },
-            { name: "Tokyo", lat: 35.6762, lon: 139.6503 },
-            { name: "Bali", lat: -8.4095, lon: 115.1889 },
-            { name: "Dubai", lat: 25.2048, lon: 55.2708 }
-        ];
+<script>
+"use strict";
+/* ============================================================================
+   SPACE CITY
+   Single-file HTML5 canvas platformer. No external assets, no dependencies.
+   Everything below is drawn with fillRect / paths at a 480x270 logical
+   resolution, then scaled up with image-rendering: pixelated.
+   ==========================================================================*/
 
-        const domesticAirlines = ["QFA", "JST", "VOZ", "RXA"];
-        const intlAirlines = ["SIA", "BAW", "UAE", "ANZ", "JAL", "QFA"];
+/* ---------------------------------------------------------------------------
+   1. LEADERBOARD CONFIG
+--------------------------------------------------------------------------- */
+const LEADERBOARD_URL = "https://script.google.com/macros/s/AKfycbx5iMRW-UmsESKb9yhD0ygwAeKUEHQqaHxymQKWXInxNezXCYspDlZbksOZd-eceFzo/exec";
+const LEADERBOARD_READY = /^https:\/\/script\.google\.com\//.test(LEADERBOARD_URL);
 
-        // --- INITIALIZATION ---
-        function startGame() {
-            let ctrlName = document.getElementById('controller-name').value.trim();
-            if(!ctrlName) ctrlName = "Unknown";
-            document.getElementById('hud-pax-name').innerText = ctrlName;
+/* ---------------------------------------------------------------------------
+   2. CANVAS + SCALING
+--------------------------------------------------------------------------- */
+let VW = 480, VH = 270, viewScale = 1, portrait = false;
+const canvas = document.getElementById("game");
+const stage  = document.getElementById("stage");
+const ctx = canvas.getContext("2d", { alpha:false });
+ctx.imageSmoothingEnabled = false;
 
-            document.getElementById('ticket').classList.add('unfold');
-            
-            setTimeout(() => {
-                document.getElementById('ticket-screen').style.display = 'none';
-                document.getElementById('map-container').style.opacity = '1';
-                initMap();
-                
-                isGameActive = true;
-                lastTimestamp = performance.now();
-                mainLoop = requestAnimationFrame(gameLoop);
-            }, 1200);
+function fitCanvas(){
+  const vv = window.visualViewport;
+  const vw = Math.max(200, Math.round(vv ? vv.width  : window.innerWidth));
+  const vh = Math.max(200, Math.round(vv ? vv.height : window.innerHeight));
+  portrait = vh > vw * 1.12;
+
+  let deckH = 0;
+  if(portrait){
+    deckH = clamp(Math.round(vh * 0.35), 180, 280); // Taller deck for bigger mobile buttons
+    // Zoomed in closer on mobile
+    const targetW = clamp(Math.round(vw / 1.3), 260, 420); 
+    viewScale = Math.max(vw / targetW, 1.0);
+    VW = clamp(Math.round(vw / viewScale), 260, 820);
+    VH = clamp(Math.round((vh - deckH) / viewScale), 250, 600);
+  } else {
+    viewScale = vh / 270;
+    VW = clamp(Math.round(vw / viewScale), 300, 820);
+    VH = clamp(Math.round(vh / viewScale), 250, 600);
+  }
+
+  const fit = Math.min(vw / (VW * viewScale), (vh - deckH) / (VH * viewScale), 1);
+  viewScale *= fit;
+
+  const sig = VW + "x" + VH + "@" + Math.round(VW * viewScale);
+  if(sig !== fitCanvas.last){
+    fitCanvas.last = sig;
+    canvas.width  = VW;
+    canvas.height = VH;
+    canvas.style.width  = Math.round(VW * viewScale) + "px";
+    canvas.style.height = Math.round(VH * viewScale) + "px";
+    ctx.imageSmoothingEnabled = false;
+  }
+
+  const band = clamp(44 + (VH - 270) * 0.5, 44, 170);
+  camera.y = GROUND_Y - (VH - band);
+  stage.style.setProperty("--deckH", (vh - Math.round(VH * viewScale)) + "px");
+  document.body.classList.toggle("portrait", portrait);
+  document.body.classList.toggle("landscape", !portrait);
+  layoutPads();
+}
+
+function layoutPads(){
+  const ids = ["bLeft","bRight","bDuck","bJump"];
+  const host = portrait ? document.getElementById("deckLeft") : document.getElementById("touch");
+  if(document.getElementById("bLeft").parentNode === host) return;
+  if(portrait){
+    document.getElementById("deckLeft").append(document.getElementById("bLeft"),
+                                               document.getElementById("bRight"));
+    document.getElementById("deckRight").append(document.getElementById("bDuck"),
+                                                document.getElementById("bJump"));
+  } else {
+    const t = document.getElementById("touch");
+    ids.forEach(id => t.append(document.getElementById(id)));
+  }
+}
+
+window.addEventListener("resize", fitCanvas);
+window.addEventListener("orientationchange", () => setTimeout(fitCanvas, 150));
+if(window.visualViewport){
+  window.visualViewport.addEventListener("resize", fitCanvas);
+  window.visualViewport.addEventListener("scroll", fitCanvas);
+}
+
+/* ---------------------------------------------------------------------------
+   3. TINY UTILITIES
+--------------------------------------------------------------------------- */
+const clamp = (v,a,b) => v < a ? a : v > b ? b : v;
+const rnd   = (a,b) => a + Math.random() * (b - a);
+const rndi  = (a,b) => Math.floor(rnd(a, b + 1));
+const pick  = arr => arr[Math.floor(Math.random() * arr.length)];
+function hit(a, b){ return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y; }
+function px(x, y, w, h, col){ ctx.fillStyle = col; ctx.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h)); }
+
+/* ---------------------------------------------------------------------------
+   4. AUDIO
+--------------------------------------------------------------------------- */
+const Sfx = {
+  ac:null, muted:false,
+  init(){ if(!this.ac){ try{ this.ac = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} } },
+  resume(){ if(this.ac && this.ac.state === "suspended") this.ac.resume(); },
+  tone(type, f0, f1, dur, vol){
+    if(this.muted || !this.ac) return;
+    const t = this.ac.currentTime;
+    const o = this.ac.createOscillator(), g = this.ac.createGain();
+    o.type = type;
+    o.frequency.setValueAtTime(f0, t);
+    o.frequency.exponentialRampToValueAtTime(Math.max(20, f1), t + dur);
+    g.gain.setValueAtTime(vol, t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(this.ac.destination);
+    o.start(t); o.stop(t + dur + .02);
+  },
+  jump()  { this.tone("square",  330, 620, .13, .05); },
+  pickup(){ this.tone("square",  740, 1180,.09, .05); },
+  lamp()  { this.tone("square",  560, 1320,.14, .055); },
+  ring()  { this.tone("triangle",520, 1760,.42, .07); },
+  beer()  { this.tone("sine",    200, 460, .22, .06); },
+  hurt()  { this.tone("sawtooth",260, 70,  .26, .06); },
+  clang() { this.tone("square",  150, 90,  .09, .045); },
+  dead()  { this.tone("sawtooth",380, 45,  .95, .07); }
+};
+
+const Bgm = {
+  ctx: null, osc1: null, osc2: null, filter: null, lfo: null, gain: null, muted: false,
+  init() {
+    if(!this.ctx) {
+      try {
+        this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+        this.gain = this.ctx.createGain();
+        this.gain.gain.value = this.muted ? 0 : 0.05; // Softer volume
+        this.gain.connect(this.ctx.destination);
+        this.filter = this.ctx.createBiquadFilter();
+        this.filter.type = "lowpass";
+        this.filter.frequency.value = 350;
+        this.filter.connect(this.gain);
+        this.lfo = this.ctx.createOscillator();
+        this.lfo.type = "sine";
+        this.lfo.frequency.value = 0.15;
+        const lfoGain = this.ctx.createGain();
+        lfoGain.gain.value = 200;
+        this.lfo.connect(lfoGain);
+        lfoGain.connect(this.filter.frequency);
+        // Sci-fi theremin vibe
+        this.osc1 = this.ctx.createOscillator();
+        this.osc1.type = "sine";
+        this.osc1.frequency.value = 130.81; 
+        this.osc2 = this.ctx.createOscillator();
+        this.osc2.type = "triangle";
+        this.osc2.frequency.value = 130.81 * 1.5; 
+        this.osc1.connect(this.filter);
+        this.osc2.connect(this.filter);
+        this.osc1.start();
+        this.osc2.start();
+        this.lfo.start();
+      } catch(e){}
+    }
+  },
+  start() {
+    this.init();
+    if(this.ctx && this.ctx.state === "suspended") this.ctx.resume();
+    if(this.gain) {
+      this.gain.gain.cancelScheduledValues(this.ctx.currentTime);
+      this.gain.gain.setValueAtTime(this.gain.gain.value, this.ctx.currentTime);
+      this.gain.gain.linearRampToValueAtTime(this.muted ? 0 : 0.05, this.ctx.currentTime + 1);
+    }
+  },
+  stop() {
+    if(this.ctx && this.gain) {
+      this.gain.gain.cancelScheduledValues(this.ctx.currentTime);
+      this.gain.gain.setValueAtTime(this.gain.gain.value, this.ctx.currentTime);
+      this.gain.gain.linearRampToValueAtTime(0, this.ctx.currentTime + 1);
+    }
+  },
+  toggle() {
+    this.muted = !this.muted;
+    if(this.ctx && this.gain) {
+      this.gain.gain.cancelScheduledValues(this.ctx.currentTime);
+      this.gain.gain.setValueAtTime(this.gain.gain.value, this.ctx.currentTime);
+      this.gain.gain.linearRampToValueAtTime(this.muted ? 0 : 0.05, this.ctx.currentTime + 0.3);
+    }
+  },
+  blip() {
+    if(this.muted || !this.ctx) return;
+    const t = this.ctx.currentTime;
+    const b = this.ctx.createOscillator();
+    const g = this.ctx.createGain();
+    b.type = "sine";
+    b.frequency.setValueAtTime(pick([196, 261.63, 329.63, 392, 523.25]), t);
+    g.gain.setValueAtTime(0.015, t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.8);
+    b.connect(g); g.connect(this.ctx.destination);
+    b.start(t); b.stop(t + 0.85);
+  }
+};
+
+/* ---------------------------------------------------------------------------
+   5. INPUT
+--------------------------------------------------------------------------- */
+const input = { left:false, right:false, jump:false, down:false, jumpPressed:false };
+
+const KEYMAP = {
+  ArrowLeft:"left",  KeyA:"left",
+  ArrowRight:"right",KeyD:"right",
+  ArrowUp:"jump",    KeyW:"jump", Space:"jump",
+  ArrowDown:"down",  KeyS:"down"
+};
+
+window.addEventListener("keydown", e => {
+  const k = KEYMAP[e.code];
+  if(k){
+    e.preventDefault();
+    if(k === "jump" && !input.jump) input.jumpPressed = true;
+    input[k] = true;
+    Sfx.init(); Sfx.resume();
+    Bgm.init(); if(Bgm.ctx && Bgm.ctx.state === "suspended") Bgm.ctx.resume();
+  }
+  if((e.code === "Enter" || e.code === "Space") && (game.state === "menu" || game.state === "over")){
+    if(document.activeElement && document.activeElement.tagName === "INPUT") return;
+    e.preventDefault();
+    if(game.state === "menu") startGame(); else if(game.state === "over") showMenu();
+  }
+}, { passive:false });
+
+window.addEventListener("keyup", e => {
+  const k = KEYMAP[e.code];
+  if(k){ e.preventDefault(); input[k] = false; }
+}, { passive:false });
+
+const touchLayer = document.getElementById("touch");
+function bindPad(id, key){
+  const el = document.getElementById(id);
+  const on = e => {
+    e.preventDefault();
+    if(key === "jump" && !input.jump) input.jumpPressed = true;
+    input[key] = true;
+    el.classList.add("down");
+    Sfx.init(); Sfx.resume();
+    Bgm.init(); if(Bgm.ctx && Bgm.ctx.state === "suspended") Bgm.ctx.resume();
+  };
+  const off = e => { e.preventDefault(); input[key] = false; el.classList.remove("down"); };
+  el.addEventListener("touchstart", on,  { passive:false });
+  el.addEventListener("touchend",   off, { passive:false });
+  el.addEventListener("touchcancel",off, { passive:false });
+  el.addEventListener("touchmove",  e => e.preventDefault(), { passive:false });
+  el.addEventListener("mousedown", on);
+  window.addEventListener("mouseup", off);
+}
+bindPad("bLeft","left"); bindPad("bRight","right");
+bindPad("bJump","jump"); bindPad("bDuck","down");
+
+document.addEventListener("touchmove", e => { if(game.state === "play") e.preventDefault(); }, { passive:false });
+document.addEventListener("gesturestart", e => e.preventDefault());
+document.addEventListener("dblclick", e => e.preventDefault());
+
+/* ---------------------------------------------------------------------------
+   6. PHYSICS CONSTANTS
+   Slower, tighter movement to reduce sensitivity.
+--------------------------------------------------------------------------- */
+const GRAVITY      = 0.34;
+const FLOAT_GRAV   = 0.60;
+const APEX_GRAV    = 0.70;
+const MAX_FALL     = 6.2;
+const JUMP_V       = -5.2;
+const CUT_JUMP     = -2.0;
+const ACCEL        = 0.28;   // Reduced from 0.46
+const FRICTION     = 0.85;   // Increased coasting slightly since accel is lower
+const MAX_SPEED    = 1.55;   // Reduced from 2.05
+const POISON_MULT  = 0.52;
+const DUCK_MULT    = 0.55;
+const COYOTE       = 6;
+const JUMP_BUFFER  = 7;
+const GROUND_Y     = 226;
+const GROUND_Y_DEPTH = 260;
+const PLAYER_W     = 10, STAND_H = 20, DUCK_H = 12;
+
+/* ---------------------------------------------------------------------------
+   7. WORLD STATE
+--------------------------------------------------------------------------- */
+const game = {
+  state:"menu",
+  score:0, items:0, distance:0, best:0,
+  shake:0, time:0, spawnX:0, difficulty:1
+};
+
+let solids   = [];
+let pickups  = [];
+let enemies  = [];
+let props    = [];
+let popups   = [];
+let dust     = [];
+let birds    = []; // Background birds
+
+const player = {
+  x:60, y:GROUND_Y - STAND_H, w:PLAYER_W, h:STAND_H,
+  vx:0, vy:0,
+  onGround:false, ducking:false, facing:1,
+  integrity:100, invuln:0, poison:0, ringPower:0,
+  coyote:0, buffer:0, anim:0, thrust:0
+};
+
+const camera = { x:0, y:0 };
+
+/* ---------------------------------------------------------------------------
+   8. LEVEL STREAMING
+--------------------------------------------------------------------------- */
+function addSolid(x, y, w, h, kind){ solids.push({ x, y, w, h, kind }); }
+function addGround(x, w){ addSolid(x, GROUND_Y, w, GROUND_Y_DEPTH, "ground"); }
+
+function addPickup(x, y, kind){
+  pickups.push({ x, y, w:kind === "beer" ? 7 : 9, h:kind === "beer" ? 12 : 9, kind, bob:Math.random() * 6.28 });
+}
+
+function addEnemy(kind, x, y, opts){
+  const e = Object.assign({
+    kind, x, y, w:12, h:10, vx:0, vy:0, dir:Math.random() < .5 ? -1 : 1,
+    onGround:false, timer:rndi(30,90), state:"idle", anim:0, homeX:x
+  }, opts || {});
+  if(kind === "redback"){ e.w = 11; e.h = 8; e.speed = 0.32 + game.difficulty * .05; }
+  if(kind === "huntsman"){ e.w = 13; e.h = 9; e.state = "hang"; e.speed = 0.42 + game.difficulty * .05; }
+  if(kind === "teen"){ e.w = 10; e.h = 20; e.y = y - 10; e.speed = 0.75 + game.difficulty * .08; }
+  if(kind === "roo"){ e.w = 16; e.h = 22; e.y = y - 12; e.speed = 1.15 + game.difficulty * .1; }
+  enemies.push(e);
+}
+
+const SIGN_TEXT = ["BARRY & ROBERTS","SPACE CITY","MILK BAR","CHEMIST","LAY-BY","DISCS","TAB","SNACK BAR"];
+
+function addProps(x, w){
+  if(Math.random() < .55) props.push({ type:"pillar", x:x + rnd(20, w - 40), y:GROUND_Y - rnd(34, 74), w:rndi(6,10), h:80 });
+  if(Math.random() < .4) props.push({ type:"sign", x:x + rnd(30, w - 60), y:rnd(70, 140), text:pick(SIGN_TEXT), col:Math.random() < .5 ? "#4ff2d8" : "#ff4f9e", flick:Math.random() * 100 });
+  if(Math.random() < .7) props.push({ type:"rubble", x:x + rnd(10, w - 20), y:GROUND_Y - 4, w:rndi(6,16), h:4 });
+  
+  // Local Landmarks
+  if(Math.random() < .25) {
+     props.push({ type: "landmark", kind: pick(["pineapple", "ettamogah", "watertower", "hillshoist", "gumtree", "expo88"]), x: x + rnd(20, w - 40), y: GROUND_Y });
+  }
+}
+
+function chunkFlat(x){
+  const w = 220; addGround(x, w); const y = GROUND_Y;
+  if(Math.random() < .8) addSolid(x + rnd(70, 150), y - 17, 13, 17, "bin");
+  const n = rndi(3,5), bx = x + 40;
+  for(let i = 0; i < n; i++) addPickup(bx + i * 22, y - 34 - Math.sin(i / (n - 1) * Math.PI) * 20, "cassette");
+  if(Math.random() < .55) addEnemy("redback", x + rnd(120, 190), y - 8, { patrol:70 });
+  addProps(x, w); return x + w;
+}
+
+function chunkCrates(x){
+  const w = 250; addGround(x, w); const y = GROUND_Y, cx = x + 70;
+  const stacks = rndi(2,3);
+  for(let s = 0; s < stacks; s++){
+    const tall = rndi(1, 2 + (game.difficulty > 1.6 ? 1 : 0));
+    const sx = cx + s * 46;
+    for(let i = 0; i < tall; i++) addSolid(sx, y - 13 * (i + 1), 14, 13, "crate");
+    const topY = y - 13 * tall;
+    if(s === stacks - 1 && Math.random() < .6) addPickup(sx + 3, topY - 14, "beer");
+    else addPickup(sx + 3, topY - 12, Math.random() < .4 ? "lamp" : "cassette");
+  }
+  if(Math.random() < .5) addEnemy("teen", x + rnd(160, 230), y, {});
+  addProps(x, w); return x + w;
+}
+
+function chunkPit(x){
+  addGround(x, 100);
+  const gap = 46 + Math.random() * 16 + game.difficulty * 3;
+  const slabW = 34; const slabX = x + 100 + gap / 2 - slabW / 2;
+  addSolid(slabX, GROUND_Y - 42, slabW, 8, "slab"); // Tim Tam platform
+  addPickup(slabX + slabW / 2 - 4, GROUND_Y - 70, Math.random() < .5 ? "ring" : "lamp");
+  const after = x + 100 + gap; addGround(after, 130);
+  addProps(x, 100); return after + 130;
+}
+
+function chunkCrawl(x){
+  const w = 240; addGround(x, w); const y = GROUND_Y;
+  const ox = x + 80, ow = 78;
+  addSolid(ox, y - 26, ow, 10, "slab");      
+  const hx = ox + ow + 34;
+  addEnemy("huntsman", hx - 6, y - 74, { anchorY:y - 74, dropX:hx });
+  addPickup(ox + 20, y - 12, "cassette");
+  addPickup(ox + 46, y - 12, "cassette");
+  if(Math.random() < .5) addSolid(x + rnd(180, 215), y - 17, 13, 17, "bin");
+  addProps(x, w); return x + w;
+}
+
+function chunkRoos(x){
+  const w = 270; addGround(x, w); const y = GROUND_Y;
+  const n = game.difficulty > 1.8 ? 2 : 1;
+  for(let i = 0; i < n; i++) addEnemy("roo", x + 110 + i * 80, y, {});
+  addPickup(x + 60, y - 30, "cassette");
+  addPickup(x + 200, y - 30, "lamp");
+  if(Math.random() < .4) addPickup(x + 140, y - 12, "beer");
+  addProps(x, w); return x + w;
+}
+
+function chunkAlcove(x){
+  const w = 240; addGround(x, w); const y = GROUND_Y;
+  addSolid(x + 60, y - 44, 60, 9, "slab");
+  addSolid(x + 150, y - 74, 52, 9, "slab");
+  addPickup(x + 82, y - 58, "beer");
+  addPickup(x + 170, y - 88, Math.random() < .35 ? "ring" : "lamp");
+  addPickup(x + 20, y - 14, "cassette");
+  if(Math.random() < .6) addEnemy("redback", x + rnd(200, 230), y - 8, { patrol:40 });
+  addProps(x, w); return x + w;
+}
+
+function chunkTeens(x){
+  const w = 250; addGround(x, w); const y = GROUND_Y;
+  addSolid(x + 100, y - 13, 14, 13, "crate");
+  addSolid(x + 114, y - 13, 14, 13, "crate");
+  addSolid(x + 114, y - 26, 14, 13, "crate");
+  addEnemy("teen", x + 70,  y, {});
+  addEnemy("teen", x + 180, y, {});
+  addPickup(x + 121, y - 40, "lamp");
+  addPickup(x + 210, y - 32, "cassette");
+  addProps(x, w); return x + w;
+}
+
+const CHUNKS = [chunkFlat, chunkCrates, chunkPit, chunkCrawl, chunkRoos, chunkAlcove, chunkTeens];
+
+function streamWorld(){
+  while(game.spawnX < camera.x + VW + 420){
+    const pool = game.difficulty < 1.25 ? [chunkFlat, chunkCrates, chunkFlat, chunkAlcove, chunkPit] : CHUNKS;
+    game.spawnX = pick(pool)(game.spawnX);
+  }
+}
+
+function cullWorld(){
+  const edge = camera.x - 260;
+  solids  = solids.filter(s => s.x + s.w > edge);
+  pickups = pickups.filter(p => p.x + p.w > edge);
+  enemies = enemies.filter(e => e.x + e.w > edge);
+  props   = props.filter(p => p.x + (p.w || 90) > edge);
+}
+
+/* ---------------------------------------------------------------------------
+   9. COLLISION
+--------------------------------------------------------------------------- */
+function nearbySolids(box, pad){
+  const p = pad || 40;
+  return solids.filter(s => s.x < box.x + box.w + p && s.x + s.w > box.x - p);
+}
+
+function moveX(body, dx){
+  body.x += dx;
+  let blocker = null;
+  for(const s of nearbySolids(body)){
+    if(!hit(body, s)) continue;
+    
+    // Crates can be pushed horizontally if bumped by player
+    if(s.kind === "crate" && body === player) {
+      s.x += dx * 0.7;               
+      if(dx > 0) body.x = s.x - body.w;
+      else if(dx < 0) body.x = s.x + s.w;
+      body.vx *= 0.6;                
+    } else {
+      if(dx > 0) body.x = s.x - body.w;
+      else if(dx < 0) body.x = s.x + s.w;
+      body.vx = 0;
+      blocker = s;
+    }
+  }
+  return blocker;
+}
+
+function moveY(body, dy){
+  body.y += dy;
+  body.onGround = false;
+  for(const s of nearbySolids(body)){
+    if(!hit(body, s)) continue;
+    if(dy > 0){ body.y = s.y - body.h; body.onGround = true; }
+    else if(dy < 0){ body.y = s.y + s.h; }
+    body.vy = 0;
+  }
+}
+
+function canStand(){
+  const test = { x:player.x, y:player.y - (STAND_H - DUCK_H), w:PLAYER_W, h:STAND_H };
+  return !nearbySolids(test).some(s => hit(test, s));
+}
+
+/* ---------------------------------------------------------------------------
+   10. PLAYER UPDATE
+--------------------------------------------------------------------------- */
+function damage(amount, poisonTicks){
+  if(player.invuln > 0 || player.ringPower > 0) return; // Ghosted!
+  player.integrity -= amount;
+  player.invuln = 78;
+  if(poisonTicks) player.poison = poisonTicks;
+  game.shake = 7;
+  player.vy = -2.4;
+  player.vx = -player.facing * 1.7;
+  Sfx.hurt();
+  if(player.integrity <= 0){
+    player.integrity = 0;
+    endRun();
+  }
+}
+
+function updatePlayer(){
+  // --- ducking ------------------------------------------------------------
+  const wantDuck = input.down && player.onGround;
+  if(wantDuck && !player.ducking){
+    player.ducking = true;
+    player.y += STAND_H - DUCK_H;
+    player.h = DUCK_H;
+  } else if(!wantDuck && player.ducking && canStand()){
+    player.ducking = false;
+    player.y -= STAND_H - DUCK_H;
+    player.h = STAND_H;
+  }
+
+  // --- horizontal ---------------------------------------------------------
+  let top = MAX_SPEED;
+  if(player.poison > 0) top *= POISON_MULT;
+  if(player.ducking)    top *= DUCK_MULT;
+  
+  if(player.ringPower > 0) {
+      top = 2.7; // Fast speed from Mood Ring!
+      player.ringPower--;
+      if(game.time % 3 === 0) puff(player.x + 5, player.y + 10, pick(["#ff4f9e","#4ff2d8","#f5c542"]));
+  }
+
+  const accel = ACCEL * (player.ducking ? 0.45 : 1);
+  if(input.left)  { player.vx -= accel; player.facing = -1; }
+  if(input.right) { player.vx += accel; player.facing =  1; }
+
+  if(Math.abs(player.vx) > top){
+    player.vx *= 0.955;
+  } else {
+    player.vx = clamp(player.vx, -top, top);
+    if(!input.left && !input.right) player.vx *= FRICTION;
+  }
+  if(Math.abs(player.vx) < 0.02) player.vx = 0;
+
+  // --- jump ---------------------------------------------------------------
+  if(player.onGround) player.coyote = COYOTE; else if(player.coyote > 0) player.coyote--;
+  if(input.jumpPressed){ player.buffer = JUMP_BUFFER; input.jumpPressed = false; }
+  if(player.buffer > 0) player.buffer--;
+
+  if(player.buffer > 0 && player.coyote > 0 && !player.ducking){
+    player.vy = JUMP_V;
+    player.onGround = false;
+    player.coyote = 0; player.buffer = 0;
+    player.thrust = 12;
+    Sfx.jump();
+    for(let i = 0; i < 5; i++) puff(player.x + 5, player.y + player.h, "#c9c0b4");
+  }
+  if(!input.jump && player.vy < CUT_JUMP) player.vy = CUT_JUMP;
+
+  // --- gravity ------------------------------------------------------------
+  let g = GRAVITY;
+  if(player.vy < 0 && input.jump) g *= FLOAT_GRAV;
+  if(Math.abs(player.vy) < 0.7)   g *= APEX_GRAV;
+  player.vy = Math.min(player.vy + g, MAX_FALL);
+
+  // --- integrate + resolve ------------------------------------------------
+  const speedIntoWall = Math.abs(player.vx);
+  const blocked = moveX(player, player.vx);
+  if(blocked && blocked.kind === "bin"){
+    player.vx = 0;
+    if(speedIntoWall > 0.6){ Sfx.clang(); game.shake = 3; }
+  }
+  moveY(player, player.vy);
+
+  if(player.x < camera.x + 6){ player.x = camera.x + 6; if(player.vx < 0) player.vx = 0; }
+
+  // --- fell down a hole ---------------------------------------------------
+  if(player.y > GROUND_Y + 140){
+    const landing = solids.filter(s => s.kind === "ground" && s.x + s.w > player.x + 30)
+                          .sort((a,b) => a.x - b.x)[0];
+    player.x = landing ? landing.x + 24 : camera.x + 60;
+    player.y = GROUND_Y - player.h - 40;
+    player.vx = 0; player.vy = 0;
+    player.invuln = 90;
+    player.integrity -= 30;
+    game.shake = 9;
+    Sfx.dead();
+    if(player.integrity <= 0){ player.integrity = 0; endRun(); }
+  }
+
+  // --- timers + animation -------------------------------------------------
+  if(player.invuln > 0 && player.ringPower <= 0) player.invuln--;
+  if(player.poison > 0) player.poison--;
+  if(player.thrust > 0) player.thrust--;
+  player.anim += Math.abs(player.vx) * 0.22;
+
+  game.distance = Math.max(game.distance, Math.floor(player.x / 16));
+  game.difficulty = clamp(1 + game.distance / 520, 1, 3.2);
+}
+
+/* ---------------------------------------------------------------------------
+   11. ENEMIES
+--------------------------------------------------------------------------- */
+function enemyPhysics(e){
+  e.vy = Math.min(e.vy + GRAVITY, MAX_FALL);
+  moveX(e, e.vx);
+  moveY(e, e.vy);
+}
+
+function groundAhead(e, dir){
+  const probe = { x:e.x + (dir > 0 ? e.w + 2 : -3), y:e.y + e.h + 2, w:1, h:4 };
+  return nearbySolids(probe, 20).some(s => hit(probe, s));
+}
+
+function updateEnemies(){
+  for(let i = enemies.length - 1; i >= 0; i--){
+    const e = enemies[i];
+    e.anim += 0.14;
+
+    if(e.kind === "redback"){
+      e.vx = e.dir * e.speed;
+      const wall = moveX(e, e.vx);
+      if(wall || !groundAhead(e, e.dir) || Math.abs(e.x - e.homeX) > (e.patrol || 60)) e.dir *= -1;
+      e.vy = Math.min(e.vy + GRAVITY, MAX_FALL);
+      moveY(e, e.vy);
+
+    } else if(e.kind === "huntsman"){
+      if(e.state === "hang"){
+        e.y = e.anchorY + Math.sin(e.anim * .6) * 0.8;
+        if(Math.abs((player.x + player.w / 2) - e.dropX) < 26 && player.y > e.y){
+          e.state = "drop"; e.vy = 0;
         }
+      } else {
+        if(e.state === "drop" && e.onGround) e.state = "crawl";
+        e.dir = (player.x < e.x) ? -1 : 1;
+        e.vx = e.state === "crawl" ? e.dir * e.speed : 0;
+        enemyPhysics(e);
+      }
 
-        function initMap() {
-            const bounds = L.latLngBounds(L.latLng(-45.0, 110.0), L.latLng(-10.0, 155.0));
+    } else if(e.kind === "teen"){
+      e.timer--;
+      if(e.timer <= 0){
+        e.timer = rndi(24, 80);
+        const roll = Math.random();
+        e.dir = roll < .38 ? -1 : roll < .76 ? 1 : 0;
+        if(Math.random() < .3 && e.onGround) e.vy = -4.1;
+      }
+      e.vx = e.dir * e.speed;
+      const wall = moveX(e, e.vx);
+      if(wall || (e.onGround && !groundAhead(e, e.dir) && e.dir !== 0)) e.dir *= -1;
+      e.vy = Math.min(e.vy + GRAVITY, MAX_FALL);
+      moveY(e, e.vy);
 
-            map = L.map('map', { 
-                zoomControl: false, maxBounds: bounds, maxBoundsViscosity: 1.0,
-                minZoom: 4, maxZoom: 6
-            }).setView([-27.0, 133.0], 4.5);
-            
-            L.tileLayer('https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png', {
-                attribution: '&copy; OpenStreetMap',
-                subdomains: 'abcd'
-            }).addTo(map);
-
-            // Recalculate map dimensions after the start-screen animation
-            setTimeout(() => { map.invalidateSize(); }, 200);
-
-            // Spawn initial flights already in motion
-            for(let i=0; i<18; i++) {
-                spawnFlight(Math.random() * 0.85); // Spread aircraft across up to 85% of their route
-            }
+    } else if(e.kind === "roo"){
+      const dist = (player.x + player.w / 2) - (e.x + e.w / 2);
+      if(e.onGround){
+        e.timer--;
+        e.vx *= 0.82;
+        if(e.timer <= 0){
+          e.timer = rndi(34, 62);
+          const aggro = Math.abs(dist) < 130;
+          e.dir = aggro ? Math.sign(dist) || 1 : (Math.random() < .5 ? -1 : 1);
+          e.vy = aggro ? -4.9 : -3.9;
+          e.vx = e.dir * e.speed * (aggro ? 1 : .6);
         }
-
-        // --- GAME LOOP & CLOCK ---
-        function gameLoop(timestamp) {
-            if (!isGameActive) return;
-
-            const deltaTime = (timestamp - lastTimestamp) / 1000;
-            lastTimestamp = timestamp;
-            realTimeSeconds += deltaTime;
-            // One real hour represents a 24-hour traffic shift internally.
-            // The accelerated simulation is intentionally not shown on the HUD.
-            updateClocks();
-
-            // Spawn new flights periodically
-            // Simulate a full day of Australian air traffic during the
-            // one-hour game: approximately one new flight every 3 seconds
-            // on average, plus the initial aircraft already airborne.
-            if (Math.random() < (deltaTime / 3.0)) spawnFlight(0);
-
-            // Move existing flights
-            updateFlights(deltaTime);
-
-            if (realTimeSeconds < REAL_TIME_LIMIT) {
-                mainLoop = requestAnimationFrame(gameLoop);
-            } else {
-                endGame();
-            }
-        }
-
-        function updateClocks() {
-            let timeRemaining = Math.max(0, REAL_TIME_LIMIT - realTimeSeconds);
-            let rm = Math.floor(timeRemaining / 60).toString().padStart(2, '0');
-            let rs = Math.floor(timeRemaining % 60).toString().padStart(2, '0');
-            document.getElementById('real-timer').innerText = `${rm}:${rs} Remaining`;
-
-        }
-
-        // --- FLIGHT SIMULATION ENGINE ---
-
-        // Generate a shortest-path great-circle route over the Earth's surface.
-        function generateGreatCircleRoute(startLat, startLon, endLat, endLon, steps = 120) {
-            const toRad = deg => deg * Math.PI / 180;
-            const toDeg = rad => rad * 180 / Math.PI;
-
-            const lat1 = toRad(startLat);
-            const lon1 = toRad(startLon);
-            const lat2 = toRad(endLat);
-            const lon2 = toRad(endLon);
-
-            const x1 = Math.cos(lat1) * Math.cos(lon1);
-            const y1 = Math.cos(lat1) * Math.sin(lon1);
-            const z1 = Math.sin(lat1);
-
-            const x2 = Math.cos(lat2) * Math.cos(lon2);
-            const y2 = Math.cos(lat2) * Math.sin(lon2);
-            const z2 = Math.sin(lat2);
-
-            const dot = Math.max(-1, Math.min(1, x1 * x2 + y1 * y2 + z1 * z2));
-            const angle = Math.acos(dot);
-            const sinTotal = Math.sin(angle);
-
-            const route = [];
-
-            for (let i = 0; i <= steps; i++) {
-                const fraction = i / steps;
-
-                let x, y, z;
-
-                if (Math.abs(sinTotal) < 0.000001) {
-                    x = x1;
-                    y = y1;
-                    z = z1;
-                } else {
-                    const a = Math.sin((1 - fraction) * angle) / sinTotal;
-                    const b = Math.sin(fraction * angle) / sinTotal;
-
-                    x = a * x1 + b * x2;
-                    y = a * y1 + b * y2;
-                    z = a * z1 + b * z2;
-                }
-
-                const lat = Math.atan2(z, Math.sqrt(x * x + y * y));
-                const lon = Math.atan2(y, x);
-
-                route.push([toDeg(lat), toDeg(lon)]);
-            }
-
-            return route;
-        }
-
-        function getRoutePosition(route, progress) {
-            const p = Math.max(0, Math.min(1, progress));
-            const routePosition = p * (route.length - 1);
-            const index = Math.floor(routePosition);
-            const nextIndex = Math.min(index + 1, route.length - 1);
-            const segmentProgress = routePosition - index;
-
-            const current = route[index];
-            const next = route[nextIndex];
-
-            return [
-                current[0] + (next[0] - current[0]) * segmentProgress,
-                current[1] + (next[1] - current[1]) * segmentProgress
-            ];
-        }
-
-        function spawnFlight(initialProgress) {
-            const isIntl = Math.random() > 0.65;
-            const id = "FL_" + Math.floor(Math.random() * 100000);
-
-            let startCity, endCity, airlineCode;
-
-            if (isIntl) {
-                airlineCode = intlAirlines[Math.floor(Math.random() * intlAirlines.length)];
-
-                if (Math.random() > 0.5) {
-                    startCity = intlCities[Math.floor(Math.random() * intlCities.length)];
-                    endCity = ausCities[Math.floor(Math.random() * ausCities.length)];
-                } else {
-                    startCity = ausCities[Math.floor(Math.random() * ausCities.length)];
-                    endCity = intlCities[Math.floor(Math.random() * intlCities.length)];
-                }
-            } else {
-                airlineCode = domesticAirlines[Math.floor(Math.random() * domesticAirlines.length)];
-                startCity = ausCities[Math.floor(Math.random() * ausCities.length)];
-
-                do {
-                    endCity = ausCities[Math.floor(Math.random() * ausCities.length)];
-                } while (endCity.name === startCity.name);
-            }
-
-            const callsign = airlineCode + Math.floor(Math.random() * 900 + 100);
-
-            const dist = Math.hypot(
-                endCity.lat - startCity.lat,
-                endCity.lon - startCity.lon
-            );
-
-            // Faster gameplay while keeping long international routes visible.
-            const durationRealSeconds = Math.max(30, dist * 12);
-
-            const route = generateGreatCircleRoute(
-                startCity.lat,
-                startCity.lon,
-                endCity.lat,
-                endCity.lon,
-                120
-            );
-
-            const startPosition = getRoutePosition(route, initialProgress);
-
-            const iconClass = isIntl
-                ? 'flight-marker-wrapper international'
-                : 'flight-marker-wrapper domestic';
-
-            const icon = L.divIcon({
-                className: iconClass,
-                html: '<div class="flight-dot"></div>',
-                iconSize: [24, 24],
-                iconAnchor: [12, 12]
-            });
-
-            const marker = L.marker(startPosition, {
-                icon: icon,
-                zIndexOffset: isIntl ? 100 : 50
-            }).addTo(map);
-
-            const trail = L.polyline([], {
-                color: isIntl ? '#8b1e1e' : '#1e3a5f',
-                weight: 2,
-                opacity: 0.5,
-                dashArray: '2, 6'
-            }).addTo(map);
-
-            const flightData = {
-                id,
-                callsign,
-                isIntl,
-                startLat: startCity.lat,
-                startLon: startCity.lon,
-                destLat: endCity.lat,
-                destLon: endCity.lon,
-                destName: endCity.name,
-                duration: durationRealSeconds,
-                progress: initialProgress,
-                route: route,
-                status: 'active',
-                history: [startPosition],
-                marker,
-                trail
-            };
-
-            marker.on('click', () => selectFlight(flightData));
-            flights[id] = flightData;
-
-        }
-
-        function updateFlights(dt) {
-            for (let id in flights) {
-                const f = flights[id];
-
-                if (f.status !== 'active') continue;
-
-                f.progress += dt / f.duration;
-
-                if (f.progress >= 1) {
-                    f.progress = 1;
-
-                    const finalPosition = f.route[f.route.length - 1];
-                    f.marker.setLatLng(finalPosition);
-
-                    removeFlight(id, f, true);
-                    continue;
-                }
-
-                const routePosition = f.progress * (f.route.length - 1);
-                const index = Math.floor(routePosition);
-                const nextIndex = Math.min(index + 1, f.route.length - 1);
-                const segmentProgress = routePosition - index;
-
-                const current = f.route[index];
-                const next = f.route[nextIndex];
-
-                const currentPosition = [
-                    current[0] + (next[0] - current[0]) * segmentProgress,
-                    current[1] + (next[1] - current[1]) * segmentProgress
-                ];
-
-                f.marker.setLatLng(currentPosition);
-
-                f.history.push(currentPosition);
-
-                if (f.history.length > 8) {
-                    f.history.shift();
-                }
-
-                f.trail.setLatLngs(f.history);
-            }
-        }
-
-        function isOffMap(lat, lon) {
-            return (lat > -8.0 || lat < -47.0 || lon < 108.0 || lon > 158.0);
-        }
-
-        function removeFlight(id, f, recordLoss = false) {
-            map.removeLayer(f.marker);
-            map.removeLayer(f.trail);
-            
-            if (recordLoss && f.status === 'active') {
-                scoreLost++;
-                document.getElementById('score-incorrect').innerText = scoreLost;
-            }
-            
-            if (activeSelectedFlight && activeSelectedFlight.id === id) {
-                closeHUD();
-            }
-            delete flights[id];
-        }
-
-        // --- INTERACTION & GUESSING ---
-        function selectFlight(data) {
-            if (data.status !== 'active') return;
-
-            activeSelectedFlight = data;
-            
-            document.getElementById('idle-instruction').style.display = 'none';
-            const panel = document.getElementById('active-flight-panel');
-            panel.style.display = 'flex';
-            
-            document.getElementById('hud-callsign').innerText = data.callsign;
-            
-            const typeBadge = document.getElementById('hud-type');
-            typeBadge.innerText = data.isIntl ? "INTERNATIONAL" : "DOMESTIC";
-            typeBadge.className = data.isIntl ? "flight-type type-int" : "flight-type type-dom";
-            
-            const input = document.getElementById('guess-input');
-            input.value = "";
-            input.focus();
-        }
-
-        function closeHUD() {
-            activeSelectedFlight = null;
-            document.getElementById('active-flight-panel').style.display = 'none';
-            document.getElementById('idle-instruction').style.display = 'block';
-        }
-
-        function getEditDistance(a, b) {
-            if (a.length === 0) return b.length;
-            if (b.length === 0) return a.length;
-            let matrix = [];
-            for (let i = 0; i <= b.length; i++) { matrix[i] = [i]; }
-            for (let j = 0; j <= a.length; j++) { matrix[0][j] = j; }
-            for (let i = 1; i <= b.length; i++) {
-                for (let j = 1; j <= a.length; j++) {
-                    if (b.charAt(i - 1) == a.charAt(j - 1)) {
-                        matrix[i][j] = matrix[i - 1][j - 1];
-                    } else {
-                        matrix[i][j] = Math.min(matrix[i - 1][j - 1] + 1, Math.min(matrix[i][j - 1] + 1, matrix[i - 1][j] + 1));
-                    }
-                }
-            }
-            return matrix[b.length][a.length];
-        }
-
-        function submitGuess() {
-            if (!activeSelectedFlight) return;
-            const guess = document.getElementById('guess-input').value.toLowerCase().trim();
-            const actual = activeSelectedFlight.destName.toLowerCase().trim();
-            
-            let allowedTypos = actual.length > 5 ? 2 : 1;
-            let isCorrect = (guess === actual) || (getEditDistance(guess, actual) <= allowedTypos);
-            
-            if (isCorrect) {
-                scoreVerified++;
-                document.getElementById('score-correct').innerText = scoreVerified;
-                showStamp("VERIFIED", true, activeSelectedFlight.destName);
-            } else {
-                scoreLost++;
-                document.getElementById('score-incorrect').innerText = scoreLost;
-                showStamp("LOST", false, activeSelectedFlight.destName);
-            }
-
-            // Fade away logic for guessed flight
-            activeSelectedFlight.status = 'processed'; // Stop it from updating
-            const selectedElement = activeSelectedFlight.marker.getElement();
-            const selectedDot = selectedElement
-                ? selectedElement.querySelector('.flight-dot')
-                : null;
-
-            if (selectedDot) {
-                selectedDot.classList.add('fade-out');
-            }
-            activeSelectedFlight.trail.setStyle({opacity: 0});
-            
-            const flightId = activeSelectedFlight.id;
-            const flightRef = activeSelectedFlight;
-            
-            setTimeout(() => {
-                if (flights[flightId]) removeFlight(flightId, flightRef, false);
-            }, 500); // Remove from memory after fade animation completes
-
-            closeHUD();
-        }
-
-        document.getElementById('guess-input').addEventListener('keypress', function (e) {
-            if (e.key === 'Enter') submitGuess();
-        });
-
-        function showStamp(mainText, isCorrect, actualDest) {
-            const stamp = document.getElementById('stamp-overlay');
-            document.getElementById('stamp-main').innerText = mainText;
-            document.getElementById('stamp-sub').innerText = `DEST: ${actualDest}`;
-            
-            if(isCorrect) {
-                stamp.classList.add('correct');
-            } else {
-                stamp.classList.remove('correct');
-            }
-            
-            stamp.classList.add('show');
-            setTimeout(() => { stamp.classList.remove('show'); }, 2000);
-        }
-
-        function restartGame() {
-            // Stop any existing animation loop.
-            isGameActive = false;
-            cancelAnimationFrame(mainLoop);
-
-            // Remove any remaining flight markers and trails.
-            if (map) {
-                for (let id in flights) {
-                    const f = flights[id];
-
-                    if (f.marker) map.removeLayer(f.marker);
-                    if (f.trail) map.removeLayer(f.trail);
-                }
-
-                flights = {};
-                activeSelectedFlight = null;
-
-                // Remove the existing Leaflet map completely.
-                map.remove();
-                map = null;
-            } else {
-                flights = {};
-                activeSelectedFlight = null;
-            }
-
-            // Reset game state.
-            scoreVerified = 0;
-            scoreLost = 0;
-            realTimeSeconds = 0;
-            lastTimestamp = 0;
-
-            // Reset dashboard.
-            document.getElementById('score-correct').innerText = '0';
-            document.getElementById('score-incorrect').innerText = '0';
-            document.getElementById('real-timer').innerText = '60:00 Remaining';
-
-            // Reset controller name.
-            document.getElementById('controller-name').value = '';
-            document.getElementById('hud-pax-name').innerText = 'Unknown';
-
-            // Reset HUD.
-            document.getElementById('guess-input').value = '';
-            closeHUD();
-
-            // Hide final screen.
-            document.getElementById('end-screen').style.display = 'none';
-
-            // Restore ticket screen.
-            document.getElementById('ticket').classList.remove('unfold');
-            document.getElementById('ticket-screen').style.display = 'flex';
-
-            // Hide the map until the player presses DEPART again.
-            document.getElementById('map-container').style.opacity = '0';
-        }
-
-        function endGame() {
-            isGameActive = false;
-            cancelAnimationFrame(mainLoop);
-            
-            document.getElementById('end-controller-name').innerText = document.getElementById('hud-pax-name').innerText;
-            document.getElementById('end-verified').innerText = scoreVerified;
-            document.getElementById('end-lost').innerText = scoreLost;
-            
-            document.getElementById('end-screen').style.display = 'flex';
-        }
-    </script>
+      }
+      const wall = moveX(e, e.vx);
+      if(wall) e.vx *= -0.4;
+      e.vy = Math.min(e.vy + GRAVITY, MAX_FALL);
+      moveY(e, e.vy);
+    }
+
+    // --- contact with the player -----------------------------------------
+    if(hit(player, e) && player.invuln === 0 && player.ringPower <= 0){
+      
+      // STOMP MECHANIC: Kangaroos & Spiders
+      if(player.vy > 0 && player.y + player.h - player.vy <= e.y + 16){
+         if(e.kind === "roo") {
+            player.vy = -4.5;
+            addPopup(e.x, e.y, "STOMPED", "#ff4f9e");
+            Sfx.jump();
+            enemies.splice(i, 1);
+            continue;
+         } else if (e.kind === "redback" || e.kind === "huntsman") {
+            player.vy = -4.0;
+            game.score += 15;
+            addPopup(e.x, e.y, "SQUISHED +15", "#4ff2d8");
+            Sfx.jump();
+            enemies.splice(i, 1);
+            continue;
+         }
+      }
+      
+      // Damage calculations based on enemy type
+      if(e.kind === "redback" || e.kind === "huntsman"){
+        damage(e.kind === "huntsman" ? 8 : 5, 220);
+      } else if(e.kind === "teen"){
+        damage(100, 0); // Automatic Kill!
+      } else {
+        damage(35, 0);  // Heavy damage from Roos
+      }
+    }
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   12. PICKUPS & BIRDS
+--------------------------------------------------------------------------- */
+const POINTS = { cassette:5, lamp:10, ring:25 };
+
+function updatePickups(){
+  for(let i = pickups.length - 1; i >= 0; i--){
+    const p = pickups[i];
+    p.bob += 0.09;
+    if(!hit(player, p)) continue;
+
+    if(p.kind === "beer"){
+      player.integrity = Math.min(100, player.integrity + 25);
+      addPopup(p.x, p.y, "SUIT +25", "#f5c542");
+      Sfx.beer();
+    } else {
+      const pts = POINTS[p.kind];
+      game.score += pts;
+      game.items++;
+      addPopup(p.x, p.y, "+" + pts, p.kind === "ring" ? "#ff4f9e" : "#4ff2d8");
+      if(p.kind === "ring"){
+        Sfx.ring();
+        canvas.classList.remove("ring");
+        void canvas.offsetWidth;
+        canvas.classList.add("ring");
+        player.ringPower = 600; // 10 seconds of ghost fast mode (60fps * 10)
+        player.invuln = 600;
+        for(let k = 0; k < 12; k++) puff(p.x + 4, p.y + 4, pick(["#ff4f9e","#4ff2d8","#f5c542"]));
+      } else if(p.kind === "lamp") Sfx.lamp();
+      else Sfx.pickup();
+    }
+    pickups.splice(i, 1);
+  }
+}
+
+function updateBirds(){
+  if(Math.random() < 0.005) {
+     birds.push({ x: camera.x + VW + 20, y: camera.y + rnd(20, 120), type: pick(["plover", "magpie", "binchicken"]), anim: 0, speed: rnd(0.8, 1.8) });
+  }
+  for(let i = birds.length - 1; i >= 0; i--){
+     let b = birds[i];
+     b.x -= b.speed;
+     b.anim += 0.15;
+     
+     // Magpie swoop!
+     if(b.type === "magpie" && Math.abs(player.x - b.x) < 80) b.y += 1.8;
+     if(b.x < camera.x - 30) birds.splice(i, 1);
+  }
+}
+
+function addPopup(x, y, text, col){ popups.push({ x, y, text, col, life:46 }); }
+function puff(x, y, col){
+  dust.push({ x, y, vx:rnd(-.8,.8), vy:rnd(-1.2,-.2), life:rndi(16,30), col });
+}
+function updateParticles(){
+  for(let i = popups.length - 1; i >= 0; i--){
+    const p = popups[i]; p.y -= 0.42; if(--p.life <= 0) popups.splice(i,1);
+  }
+  for(let i = dust.length - 1; i >= 0; i--){
+    const d = dust[i];
+    d.x += d.vx; d.y += d.vy; d.vy += 0.045;
+    if(--d.life <= 0) dust.splice(i,1);
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   13. RENDERING — background
+--------------------------------------------------------------------------- */
+function drawSky(){
+  const top  = camera.y;
+  const skyH = GROUND_Y - top;
+
+  px(0, top, VW, VH, "#0d0812");
+
+  const g = ctx.createLinearGradient(0, top, 0, GROUND_Y);
+  g.addColorStop(0,   "#241536");
+  g.addColorStop(.42, "#6b3565");
+  g.addColorStop(.74, "#c25a52");
+  g.addColorStop(1,   "#e0714f");
+  ctx.fillStyle = g;
+  ctx.fillRect(0, top - 10, VW, skyH + 14);
+
+  if(skyH > 250){
+    const span = VW + 60;
+    for(let i = 0; i < 46; i++){
+      let sx = ((i * 97 + 13) - camera.x * 0.03) % span;
+      if(sx < 0) sx += span;
+      const sy = top + 8 + ((i * 61) % Math.max(20, Math.floor(skyH * 0.46)));
+      px(sx - 30, sy, 1, 1, i % 3 ? "rgba(233,229,218,.22)" : "rgba(233,229,218,.45)");
+    }
+  }
+
+  const sunY = GROUND_Y - clamp(skyH * 0.28, 70, 168);
+  const sunX = VW * 0.78 - (camera.x * 0.02) % (VW + 120);
+  ctx.fillStyle = "#ffcf6b";
+  ctx.beginPath(); ctx.arc(sunX, sunY, 26, 0, 6.2832); ctx.fill();
+  for(let i = 0; i < 5; i++) px(0, sunY - 12 + i * 9, VW, 3, "rgba(224,113,79,0.42)");
+}
+
+function drawDomes(offset, baseY, radius, spacing, col){
+  ctx.fillStyle = col;
+  const start = Math.floor(offset / spacing) - 1;
+  for(let i = start; i < start + Math.ceil(VW / spacing) + 3; i++){
+    const cx = i * spacing - offset;
+    const r  = radius * (0.72 + ((i * 37) % 10) / 22);
+    ctx.beginPath();
+    ctx.moveTo(cx - r, baseY);
+    ctx.arc(cx, baseY, r, Math.PI, 0);
+    ctx.lineTo(cx + r, baseY);
+    ctx.closePath();
+    ctx.fill();
+  }
+  px(0, baseY, VW, GROUND_Y - baseY + 4, col);
+}
+
+function drawBirds(){
+  for(const b of birds) {
+     const bx = b.x - camera.x;
+     ctx.fillStyle = "#110a17";
+     const wingY = Math.sin(b.anim) * 3;
+     if (b.type === "binchicken") {
+        px(bx, b.y, 6, 2, "#110a17");
+        px(bx-4, b.y+1, 4, 1, "#110a17"); // long beak
+        px(bx+2, b.y + wingY, 3, 2, "#110a17");
+     } else {
+        px(bx, b.y, 4, 2, "#110a17");
+        px(bx+1, b.y + wingY, 2, 2, "#110a17");
+     }
+  }
+}
+
+function drawParallax(){
+  drawSky();
+  drawBirds();
+  drawDomes(camera.x * 0.12, 196, 40, 96, "rgba(63,40,74,0.72)");
+  drawDomes(camera.x * 0.3,  208, 58, 132, "rgba(42,27,52,0.9)");
+
+  ctx.textAlign = "center";
+  ctx.font = "6px " + '"Courier New", monospace';
+  for(const p of props){
+    if(p.type === "sign") {
+      const sx = p.x - camera.x * 0.3;
+      if(sx < -80 || sx > VW + 80) continue;
+      const alive = (Math.sin((game.time + p.flick) * 0.09) > -0.72);
+      ctx.globalAlpha = alive ? 0.62 : 0.13;
+      ctx.fillStyle = p.col;
+      ctx.fillText(p.text, sx, p.y);
+      px(sx - p.text.length * 1.9, p.y + 3, p.text.length * 3.8, 1, p.col);
+      ctx.globalAlpha = 1;
+    } else if(p.type === "landmark"){
+      // Local Backdrops
+      const sx = p.x - camera.x * 0.4; // Mid-speed parallax
+      if(sx < -100 || sx > VW + 100) continue;
+      ctx.fillStyle = "rgba(35,22,40,0.8)";
+      
+      if(p.kind === "pineapple"){
+         ctx.beginPath(); ctx.ellipse(sx, p.y - 25, 15, 25, 0, 0, Math.PI*2); ctx.fill();
+         px(sx - 8, p.y - 60, 3, 12, "rgba(35,22,40,0.8)");
+         px(sx, p.y - 65, 3, 15, "rgba(35,22,40,0.8)");
+         px(sx + 6, p.y - 58, 3, 12, "rgba(35,22,40,0.8)");
+      } else if(p.kind === "ettamogah") {
+         px(sx - 25, p.y - 35, 50, 35, "rgba(35,22,40,0.8)"); 
+         px(sx - 35, p.y - 40, 70, 8, "rgba(35,22,40,0.8)"); 
+         px(sx - 5, p.y - 50, 16, 10, "rgba(35,22,40,0.8)"); 
+      } else if(p.kind === "watertower") {
+         px(sx - 6, p.y - 60, 2, 60, "rgba(35,22,40,0.8)");
+         px(sx + 4, p.y - 60, 2, 60, "rgba(35,22,40,0.8)");
+         px(sx - 12, p.y - 75, 24, 20, "rgba(35,22,40,0.8)");
+      } else if(p.kind === "hillshoist") {
+         px(sx, p.y - 25, 2, 25, "rgba(35,22,40,0.8)"); 
+         px(sx - 15, p.y - 25, 30, 2, "rgba(35,22,40,0.8)"); 
+         ctx.beginPath(); ctx.moveTo(sx-15, p.y-25); ctx.lineTo(sx-5, p.y-15); ctx.lineTo(sx+5, p.y-15); ctx.lineTo(sx+15, p.y-25); ctx.stroke();
+      } else if(p.kind === "gumtree") {
+         px(sx, p.y - 45, 4, 45, "rgba(35,22,40,0.8)");
+         ctx.beginPath(); ctx.arc(sx, p.y - 50, 20, 0, Math.PI*2); ctx.fill();
+         ctx.beginPath(); ctx.arc(sx - 12, p.y - 38, 14, 0, Math.PI*2); ctx.fill();
+         ctx.beginPath(); ctx.arc(sx + 15, p.y - 45, 16, 0, Math.PI*2); ctx.fill();
+      } else if(p.kind === "expo88") {
+         px(sx, p.y - 50, 2, 50, "rgba(35,22,40,0.8)");
+         ctx.beginPath(); ctx.arc(sx + 1, p.y - 62, 12, 0, Math.PI*2); ctx.fill();
+         ctx.fillStyle = "#e0714f"; 
+         ctx.fillText("88", sx + 1, p.y - 60);
+      }
+    }
+  }
+
+  for(const p of props){
+    const sx = p.x - camera.x * 0.62;
+    if(sx < -40 || sx > VW + 40) continue;
+    if(p.type === "pillar") px(sx, p.y, p.w, p.h, "rgba(30,22,38,0.88)");
+  }
+}
+
+function drawForeground(){
+  const bottom = camera.y + VH;
+  const apron  = bottom - (GROUND_Y + 44);
+  if(apron <= 2) return;
+
+  const g = ctx.createLinearGradient(0, GROUND_Y + 16, 0, bottom);
+  g.addColorStop(0,   "rgba(13,8,18,0)");
+  g.addColorStop(.42, "rgba(13,8,18,0.78)");
+  g.addColorStop(1,   "rgba(13,8,18,0.98)");
+  ctx.fillStyle = g;
+  ctx.fillRect(0, GROUND_Y + 16, VW, apron + 34);
+}
+
+/* ---------------------------------------------------------------------------
+   14. RENDERING — world objects
+--------------------------------------------------------------------------- */
+function drawSolids(){
+  for(const s of solids){
+    const sx = s.x - camera.x;
+    if(sx > VW + 30 || sx + s.w < -30) continue;
+
+    if(s.kind === "ground"){
+      px(sx, s.y, s.w, 3, "#b3a898");
+      px(sx, s.y + 3, s.w, s.h - 3, "#6d6459");
+      for(let i = 0; i < s.w; i += 14) px(sx + i, s.y + 3, 1, s.h - 3, "#5c544a");
+      for(let i = 8; i < s.w; i += 37){
+        const seed = (Math.abs(Math.floor(s.x) + i) * 2654435761) % 11;
+        px(sx + i, s.y + 6, 3, 6 + seed, "#5a5249");
+      }
+
+    } else if(s.kind === "slab"){
+      // Melting Tim Tam Platform
+      px(sx, s.y, s.w - 8, s.h, "#4a2a18");
+      px(sx + s.w - 8, s.y, 4, s.h, "#4a2a18");
+      px(sx + s.w - 4, s.y, 4, 2, "#4a2a18");
+      px(sx + s.w - 4, s.y + s.h - 2, 4, 2, "#4a2a18"); // Bite mark on right edge
+      px(sx, s.y + 2, s.w - 10, s.h - 4, "#2c160a"); // Biscuit centre
+      // Chocolate drips
+      px(sx + 6, s.y + s.h, 2, 4, "#4a2a18");
+      px(sx + 18, s.y + s.h, 3, 7, "#4a2a18");
+      px(sx + 28, s.y + s.h, 2, 3, "#4a2a18");
+
+    } else if(s.kind === "crate"){
+      // Solid black milk crate
+      px(sx, s.y, s.w, s.h, "#151515");
+      px(sx + 1, s.y + 1, s.w - 2, s.h - 2, "#222");
+      for(let i = 3; i < s.w - 2; i += 4) px(sx + i, s.y + 3, 2, s.h - 6, "#151515");
+      px(sx, s.y, s.w, 2, "#333");
+
+    } else if(s.kind === "bin"){
+      px(sx, s.y + 3, s.w, s.h - 3, "#2e6b3a");
+      px(sx + 1, s.y + 4, s.w - 3, s.h - 5, "#3f8c4c");
+      px(sx - 1, s.y, s.w + 2, 4, "#22351f");
+      px(sx + 2, s.y + 7, s.w - 5, 1, "#2e6b3a");
+      px(sx + 1, s.y + s.h - 2, 3, 2, "#1a1a1a");
+    }
+  }
+}
+
+function drawPickups(){
+  for(const p of pickups){
+    const sx = p.x - camera.x;
+    if(sx > VW + 20 || sx < -20) continue;
+    const by = p.y + Math.sin(p.bob) * 1.6;
+
+    if(p.kind === "cassette"){
+      px(sx, by, 9, 7, "#2b2b33");
+      px(sx + 1, by + 1, 7, 3, "#d9cfae");
+      px(sx + 2, by + 4, 2, 2, "#7a7a86");
+      px(sx + 5, by + 4, 2, 2, "#7a7a86");
+
+    } else if(p.kind === "lamp"){
+      px(sx + 1, by + 7, 7, 2, "#c98b33");
+      px(sx + 2, by, 5, 7, "#ff8a3d");
+      px(sx + 3, by + 1 + (Math.sin(p.bob * 1.7) > 0 ? 0 : 1), 3, 3, "#ffd166");
+      px(sx + 2, by, 5, 1, "#c98b33");
+
+    } else if(p.kind === "ring"){
+      const cols = ["#ff4f9e","#4ff2d8","#8a6bff","#f5c542"];
+      const c = cols[Math.floor(p.bob * 2) % cols.length];
+      px(sx + 1, by + 2, 7, 6, "#d9c98a");
+      px(sx + 2, by + 3, 5, 4, "#1a1424");
+      px(sx + 3, by, 3, 3, c);
+      px(sx + 3, by - 1, 3, 1, "rgba(255,255,255,.6)");
+
+    } else if(p.kind === "beer"){
+      px(sx, by, 7, 12, "#6b3f1e");
+      px(sx + 2, by - 2, 3, 3, "#6b3f1e");
+      px(sx, by + 3, 7, 6, "#f5c542");
+      for(let i = 0; i < 4; i++) px(sx + 1 + i * 1.6, by + 5, 1, 2, "#b8271f");
+      px(sx + 5, by, 1, 12, "rgba(255,255,255,.22)");
+    }
+  }
+}
+
+function drawEnemies(){
+  for(const e of enemies){
+    const sx = e.x - camera.x;
+    if(sx > VW + 30 || sx + e.w < -30) continue;
+    const legPhase = Math.sin(e.anim) > 0 ? 1 : 0;
+
+    if(e.kind === "redback"){
+      px(sx + 2, e.y + 2, 7, 5, "#141018");
+      px(sx + 4, e.y + 2, 3, 4, "#c8262b");
+      px(sx + 1, e.y + 4, 2, 2, "#141018");
+      for(let i = 0; i < 3; i++){
+        px(sx + 1 + i * 3, e.y + 7 - legPhase, 1, 2, "#141018");
+        px(sx + 2 + i * 3, e.y, 1, 2, "#141018");
+      }
+
+    } else if(e.kind === "huntsman"){
+      if(e.state === "hang"){
+        px(sx + 6, e.y - 14, 1, 14, "rgba(233,229,218,.35)");
+      }
+      px(sx + 3, e.y + 2, 8, 5, "#6b5540");
+      px(sx + 1, e.y + 3, 3, 3, "#54412f");
+      for(let i = 0; i < 4; i++){
+        px(sx + i * 3, e.y + 7 - legPhase, 2, 2, "#54412f");
+        px(sx + i * 3, e.y - 1 + legPhase, 2, 2, "#54412f");
+      }
+
+    } else if(e.kind === "teen"){
+      const bounce = Math.sin(e.anim * 1.4) > 0 ? 0 : 1;
+      px(sx + 2, e.y + 1, 6, 5, "#2a2a30");
+      px(sx + 3, e.y + 4, 5, 4, "#c9976b");
+      px(sx + 1, e.y + 8, 8, 8, "#7a3f8c");
+      px(sx + 4, e.y + 8, 2, 8, "#4a2456");
+      px(sx + 1, e.y + 16, 3, 4 - bounce, "#2f3b6b");
+      px(sx + 6, e.y + 16, 3, 4 - (1 - bounce), "#2f3b6b");
+
+    } else if(e.kind === "roo"){
+      const f = e.onGround ? 0 : 3;
+      px(sx + 2, e.y + 6 - f, 10, 9, "#9a6b3f");
+      px(sx + 9, e.y + 1 - f, 5, 6, "#9a6b3f");
+      px(sx + 12, e.y + 3 - f, 3, 2, "#7d5531");
+      px(sx + 9, e.y - 3 - f, 2, 5, "#7d5531");
+      px(sx + 12, e.y - 3 - f, 2, 5, "#7d5531");
+      px(sx - 3, e.y + 11 - f, 6, 3, "#7d5531");
+      px(sx + 3, e.y + 14 - f, 4, 6 + f, "#7d5531");
+      px(sx + 8, e.y + 12 - f, 3, 4, "#9a6b3f");
+      px(sx + 12, e.y + 2 - f, 1, 1, "#150d20");
+    }
+  }
+}
+
+/** The player: race helmet, hard suit, XXXX-gold visor. */
+function drawPlayer(){
+  if(player.invuln > 0 && player.ringPower <= 0 && Math.floor(player.invuln / 4) % 2 === 0) return;
+
+  const sx = player.x - camera.x, sy = player.y, f = player.facing;
+  const duck = player.ducking;
+  const step = Math.sin(player.anim) > 0 ? 1 : 0;
+  const poisoned = player.poison > 0;
+  const suit = poisoned ? "#b9d6a8" : "#e9e5da";
+  const suitDark = poisoned ? "#8fae7f" : "#b9b2a4";
+
+  if(player.ringPower > 0) ctx.globalAlpha = 0.45; // Ghost effect
+
+  if(duck){
+    px(sx - 1, sy + 3, 12, 9, suit);
+    px(sx - 1, sy + 3, 12, 2, "#ff5b2e");
+    px(sx + (f > 0 ? 4 : 0), sy - 1, 7, 6, suit);
+    px(sx + (f > 0 ? 7 : 0), sy + 1, 4, 3, "#f5c542");
+    px(sx, sy + 10, 4, 2, suitDark);
+    px(sx + 6, sy + 10, 4, 2, suitDark);
+  } else {
+    px(sx + (f > 0 ? -2 : 8), sy + 6, 4, 8, "#8d867a");
+    px(sx + 1, sy + 14, 3, 6 - step, suitDark);
+    px(sx + 6, sy + 14, 3, 5 + step, suitDark);
+    px(sx + 1, sy + 19 - step, 4, 2, "#33302b");
+    px(sx + 6, sy + 18 + step, 4, 2, "#33302b");
+    px(sx, sy + 6, 10, 9, suit);
+    px(sx, sy + 8, 10, 2, "#ff5b2e");
+    px(sx + (f > 0 ? 5 : 2), sy + 11, 3, 3, "#4ff2d8");
+    px(sx, sy, 10, 7, suit);
+    px(sx + (f > 0 ? 4 : 1), sy + 2, 5, 3, "#f5c542");
+    px(sx + (f > 0 ? 7 : 1), sy + 2, 1, 1, "#fff6d6");
+    px(sx, sy, 10, 1, "#fdfbf6");
+  }
+
+  if(player.thrust > 0 && player.vy < 0){
+    const t = player.thrust;
+    px(sx + 3, sy + (duck ? 12 : 20), 4, 2 + t / 4, t > 6 ? "#4ff2d8" : "#ff5b2e");
+  }
+  
+  ctx.globalAlpha = 1.0;
+}
+
+function drawParticles(){
+  for(const d of dust){
+    px(d.x - camera.x, d.y, 2, 2, d.col);
+  }
+  ctx.textAlign = "center";
+  ctx.font = "8px " + '"Courier New", monospace';
+  for(const p of popups){
+    ctx.globalAlpha = clamp(p.life / 26, 0, 1);
+    ctx.fillStyle = "#000";
+    ctx.fillText(p.text, p.x - camera.x + 5, p.y + 1);
+    ctx.fillStyle = p.col;
+    ctx.fillText(p.text, p.x - camera.x + 4, p.y);
+    ctx.globalAlpha = 1;
+  }
+}
+
+function drawPoisonVignette(){
+  if(player.poison <= 0) return;
+  const a = clamp(player.poison / 220, 0, 1) * 0.3;
+  const r = Math.max(VW, VH) * 0.62;
+  const g = ctx.createRadialGradient(VW/2, VH/2, r * 0.25, VW/2, VH/2, r);
+  g.addColorStop(0, "rgba(90,180,90,0)");
+  g.addColorStop(1, "rgba(90,180,90," + a.toFixed(3) + ")");
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, VW, VH);
+}
+
+/* ---------------------------------------------------------------------------
+   15. GAME LOOP
+--------------------------------------------------------------------------- */
+const STEP = 1000 / 60;
+let acc = 0, last = performance.now();
+
+function tick(now){
+  requestAnimationFrame(tick);
+  let dt = now - last; last = now;
+  if(dt > 250) dt = 250;
+  acc += dt;
+
+  while(acc >= STEP){
+    acc -= STEP;
+    if(game.state === "play"){
+      game.time++;
+      updatePlayer();
+      updateEnemies();
+      updatePickups();
+      updateBirds();
+      
+      const target = player.x - VW * 0.32;
+      camera.x = Math.max(camera.x, target);
+      streamWorld();
+      if(game.time % 30 === 0) cullWorld();
+      
+      if(Math.random() < 0.01) Bgm.blip();
+    }
+    
+    if(game.state === "play" || game.state === "info" || game.state === "over"){
+      updateParticles();
+      if(game.shake > 0) game.shake--;
+    }
+  }
+
+  render();
+}
+
+function render(){
+  ctx.save();
+  if(game.shake > 0){
+    ctx.translate(rndi(-game.shake, game.shake) * .5, rndi(-game.shake, game.shake) * .5);
+  }
+  ctx.save();
+  ctx.translate(0, -camera.y);
+  drawParallax();
+  drawSolids();
+  drawPickups();
+  drawEnemies();
+  if(game.state === "play" || game.state === "over" || game.state === "info") drawPlayer();
+  drawParticles();
+  drawForeground();
+  ctx.restore();
+
+  drawPoisonVignette();
+  ctx.restore();
+  updateHud();
+}
+
+/* ---------------------------------------------------------------------------
+   16. HUD + SCREENS
+--------------------------------------------------------------------------- */
+const el = id => document.getElementById(id);
+const hScore = el("hScore"), hDist = el("hDist");
+const integrityBox = el("integrity"), integrityFill = el("integrityFill");
+const startScreen = el("startScreen"), overScreen = el("overScreen"), infoScreen = el("infoScreen");
+const hud = el("hud");
+
+function updateHud(){
+  hScore.textContent = game.score;
+  hDist.textContent = game.distance + "m";
+  integrityFill.style.width = player.integrity + "%";
+  integrityBox.classList.toggle("low", player.integrity <= 30);
+  hud.style.opacity = (game.state === "play" || game.state === "info") ? "1" : "0";
+}
+
+function resetWorld(){
+  solids = []; pickups = []; enemies = []; props = []; popups = []; dust = []; birds = [];
+  game.score = 0; game.items = 0; game.distance = 0; game.difficulty = 1;
+  game.spawnX = 0; game.shake = 0;
+  camera.x = 0;
+  Object.assign(player, {
+    x:60, y:GROUND_Y - STAND_H, w:PLAYER_W, h:STAND_H,
+    vx:0, vy:0, onGround:false, ducking:false, facing:1,
+    integrity:100, invuln:0, poison:0, ringPower:0, coyote:0, buffer:0, anim:0, thrust:0
+  });
+  addGround(-60, 320);
+  game.spawnX = 260;
+  streamWorld();
+}
+
+function showMenu(){
+  game.state = "menu";
+  overScreen.classList.remove("on");
+  infoScreen.classList.remove("on");
+  startScreen.classList.add("on");
+  touchLayer.classList.remove("on");
+  el("infoBtn").style.display = "none";
+  el("endBtn").style.display = "none";
+  resetWorld();
+  loadLeaderboard();
+  Bgm.stop();
+}
+
+function startGame(){
+  Sfx.init(); Sfx.resume();
+  Bgm.start();
+  resetWorld();
+  game.state = "play";
+  startScreen.classList.remove("on");
+  overScreen.classList.remove("on");
+  infoScreen.classList.remove("on");
+  if(isTouch) touchLayer.classList.add("on");
+  
+  el("infoBtn").style.display = "inline-block";
+  el("infoBtn").textContent = "Info";
+  el("endBtn").style.display = "inline-block";
+
+  el("overStatus").textContent = "";
+  el("overStatus").className = "status";
+  el("entryForm").style.display = LEADERBOARD_READY ? "flex" : "none";
+}
+
+function endRun(){
+  if(game.state !== "play" && game.state !== "info") return;
+  game.state = "over";
+  Sfx.dead();
+  Bgm.stop();
+  touchLayer.classList.remove("on");
+  input.left = input.right = input.jump = input.down = false;
+  el("infoScreen").classList.remove("on");
+  
+  el("infoBtn").style.display = "none";
+  el("endBtn").style.display = "none";
+  
+  el("oScore").textContent = game.score;
+  el("oDist").textContent  = game.distance + "m";
+  el("oItems").textContent = game.items;
+  const status = el("overStatus");
+  if(!LEADERBOARD_READY){
+    status.textContent = "Leaderboard not connected — add your Apps Script URL";
+    status.className = "status warn";
+  }
+  overScreen.classList.add("on");
+}
+
+el("playBtn").addEventListener("click", startGame);
+el("againBtn").addEventListener("click", showMenu);
+el("endBtn").addEventListener("click", () => {
+  if(game.state === "play" || game.state === "info") endRun();
+});
+el("infoBtn").addEventListener("click", () => {
+  if(game.state === "play"){
+    game.state = "info";
+    infoScreen.classList.add("on");
+    el("infoBtn").textContent = "Resume";
+  } else if(game.state === "info"){
+    game.state = "play";
+    infoScreen.classList.remove("on");
+    el("infoBtn").textContent = "Info";
+    Sfx.resume();
+    if(Bgm.ctx && Bgm.ctx.state === "suspended") Bgm.ctx.resume();
+  }
+});
+el("resumeBtn").addEventListener("click", () => {
+  if(game.state === "info"){
+    game.state = "play";
+    infoScreen.classList.remove("on");
+    el("infoBtn").textContent = "Info";
+    Sfx.resume();
+    if(Bgm.ctx && Bgm.ctx.state === "suspended") Bgm.ctx.resume();
+  }
+});
+
+el("muteBtn").addEventListener("click", () => {
+  Sfx.muted = !Sfx.muted;
+  el("muteBtn").textContent = "Snd: " + (Sfx.muted ? "off" : "on");
+});
+
+el("musicBtn").addEventListener("click", () => {
+  Bgm.toggle();
+  el("musicBtn").textContent = "Mus: " + (Bgm.muted ? "off" : "on");
+});
+
+/* ---------------------------------------------------------------------------
+   17. LEADERBOARD
+--------------------------------------------------------------------------- */
+const marqueeTrack = el("marqueeTrack");
+
+function stopMarquee(){
+  if(marqueeTrack.getAnimations) marqueeTrack.getAnimations().forEach(a => a.cancel());
+}
+
+function renderMarquee(rows){
+  stopMarquee();
+  if(!rows || !rows.length){
+    marqueeTrack.className = "track idle";
+    marqueeTrack.textContent = "No scores posted yet — be the first";
+    return;
+  }
+  const line = rows.slice(0, 10).map((r, i) =>
+    `<em>${i + 1}.</em> ${escapeHtml(r.name || "?")} · ${Number(r.score) || 0}`
+  ).join("   ·   ");
+  marqueeTrack.className = "track";
+  marqueeTrack.innerHTML = line + "   ·   " + line;
+  if(window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  const w = marqueeTrack.scrollWidth / 2;
+  marqueeTrack.animate(
+    [{ transform:"translateX(0)" }, { transform:`translateX(${-w}px)` }],
+    { duration:w * 40, iterations:Infinity, easing:"linear" }
+  );
+}
+
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c =>
+    ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" })[c]);
+}
+
+async function loadLeaderboard(){
+  stopMarquee();
+  if(!LEADERBOARD_READY){
+    marqueeTrack.className = "track idle";
+    marqueeTrack.textContent = "Leaderboard not connected";
+    return;
+  }
+  marqueeTrack.className = "track idle";
+  marqueeTrack.textContent = "Loading high scores…";
+  try{
+    const res = await fetch(LEADERBOARD_URL + "?action=top&limit=10", { method:"GET" });
+    const data = await res.json();
+    renderMarquee(Array.isArray(data) ? data : (data.scores || []));
+  }catch(err){
+    marqueeTrack.className = "track idle";
+    marqueeTrack.textContent = "Leaderboard unreachable";
+  }
+}
+
+el("submitBtn").addEventListener("click", async () => {
+  const status = el("overStatus");
+  const name   = el("fName").value.trim();
+
+  if(!LEADERBOARD_READY){
+    status.textContent = "Leaderboard not connected — add your Apps Script URL";
+    status.className = "status warn";
+    return;
+  }
+  if(!name){
+    status.textContent = "Need a first name";
+    status.className = "status warn";
+    return;
+  }
+
+  status.textContent = "Posting…";
+  status.className = "status";
+  try{
+    await fetch(LEADERBOARD_URL, {
+      method:"POST",
+      headers:{ "Content-Type":"text/plain;charset=utf-8" },
+      body:JSON.stringify({
+        name,
+        score:game.score,
+        distance:game.distance,
+        items:game.items,
+        ts:new Date().toISOString()
+      })
+    });
+    status.textContent = "Posted — " + name;
+    status.className = "status ok";
+    el("submitBtn").disabled = true;
+    loadLeaderboard();
+  }catch(err){
+    status.textContent = "Couldn't reach the leaderboard";
+    status.className = "status warn";
+  }
+});
+
+el("fName").addEventListener("keydown", e => { if(e.key === "Enter") el("submitBtn").click(); });
+
+/* ---------------------------------------------------------------------------
+   18. BOOT
+--------------------------------------------------------------------------- */
+el("entryForm").style.display = LEADERBOARD_READY ? "flex" : "none";
+fitCanvas();
+showMenu();
+requestAnimationFrame(tick);
+</script>
 </body>
 </html>
