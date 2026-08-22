@@ -38,27 +38,35 @@
             height: 100vh;
         }
 
-        /* --- THE MAP & VIGNETTE --- */
+        /* --- FLEX LAYOUT FOR RESPONSIVENESS --- */
         #map-container {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             background-color: var(--parchment-dark);
             z-index: 1; opacity: 0; transition: opacity 1.5s ease-in;
+            display: flex;
+            flex-direction: column;
         }
-        
-        #map-container::after {
-            content: '';
-            position: absolute;
-            top: 0; left: 0; right: 0; bottom: 120px;
-            background: radial-gradient(circle at center, transparent 20%, rgba(10, 5, 0, 0.85) 100%);
+
+        #map-wrapper {
+            position: relative;
+            flex: 1;
+            width: 100%;
+            overflow: hidden;
+        }
+
+        #map { width: 100%; height: 100%; background: #dcd2c6; }
+
+        /* Lighter Vignette & Better Tile Contrast */
+        .vignette-overlay {
+            position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            background: radial-gradient(ellipse at center, transparent 35%, rgba(15, 10, 5, 0.65) 100%);
             pointer-events: none;
             z-index: 400;
         }
 
-        #map { width: 100%; height: calc(100% - 120px); background: #dcd2c6; }
-
         .leaflet-tile-pane {
-            filter: sepia(0.8) contrast(1.6) brightness(0.6) saturate(1.2) hue-rotate(-5deg);
-            opacity: 1;
+            filter: sepia(0.4) contrast(1.15) brightness(0.9) saturate(1.1) hue-rotate(-10deg);
+            opacity: 0.95;
         }
 
         /* Flight Markers */
@@ -167,7 +175,7 @@
 
         /* --- DASHBOARD --- */
         #dashboard {
-            position: absolute; bottom: 0; left: 0; width: 100%; height: 120px;
+            position: relative; width: 100%; height: 120px; flex-shrink: 0;
             background: var(--parchment-light); border-top: 2px solid var(--ink);
             z-index: 500; display: flex; align-items: center; justify-content: space-between;
             padding: 0 20px; box-shadow: 0 -10px 30px rgba(0,0,0,0.6);
@@ -199,7 +207,7 @@
         
         .input-group { display: flex; flex-grow: 1; height: 45px;}
         #guess-input {
-            flex-grow: 1; padding: 10px; font-family: 'Courier Prime', monospace; font-size: 1rem;
+            flex-grow: 1; padding: 10px; font-family: 'Courier Prime', monospace; font-size: 16px;
             border: 2px solid var(--ink); border-right: none; background: #fff; text-transform: uppercase; outline: none;
             border-radius: 6px 0 0 6px;
         }
@@ -272,37 +280,43 @@
             text-align: left;
         }
         .leaderboard-title {
-            font-family: 'Playfair Display', serif;
-            font-size: 1.2rem;
-            color: var(--ink);
-            border-bottom: 1px solid #ccc;
-            padding-bottom: 5px;
-            margin-bottom: 10px;
-            text-align: center;
-            text-transform: uppercase;
+            font-family: 'Playfair Display', serif; font-size: 1.2rem; color: var(--ink);
+            border-bottom: 1px solid #ccc; padding-bottom: 5px; margin-bottom: 10px;
+            text-align: center; text-transform: uppercase;
         }
-        .leaderboard-list {
-            list-style: none;
-            font-size: 0.9rem;
-            max-height: 150px;
-            overflow-y: auto;
-        }
-        .leaderboard-list li {
-            display: flex;
-            justify-content: space-between;
-            padding: 4px 0;
-            border-bottom: 1px dashed rgba(0,0,0,0.1);
-        }
+        .leaderboard-list { list-style: none; font-size: 0.9rem; max-height: 150px; overflow-y: auto; }
+        .leaderboard-list li { display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px dashed rgba(0,0,0,0.1); }
         .leaderboard-list li strong { color: var(--red-ink); }
         .lb-mode { font-size: 0.7rem; color: #777; text-transform: uppercase;}
 
+        /* --- MOBILE RESPONSIVENESS --- */
         @media (max-width: 768px) {
-            #dashboard { flex-direction: column; height: auto; padding: 15px; gap: 10px; }
-            #map { height: calc(100% - 200px); }
+            #dashboard {
+                height: auto;
+                flex-direction: column;
+                padding: 12px;
+                gap: 8px;
+            }
             .dash-section { width: 100%; border: none !important; padding: 0 !important; text-align: center !important; }
-            .tally-board { display: flex; justify-content: space-around; border-bottom: 1px dashed #ccc !important; padding-bottom: 10px !important;}
-            .flight-action-area { height: auto; margin: 0; }
-            #logo-overlay h1 { font-size: 1.2rem; }
+            .tally-board { display: flex; justify-content: space-around; border-bottom: 1px dashed #ccc !important; padding-bottom: 8px !important; }
+            
+            .flight-action-area { height: auto; min-height: 85px; margin: 0; padding: 8px; }
+            #active-flight-panel { flex-direction: column; gap: 8px; }
+            .flight-stats { text-align: center !important; width: 100%; }
+            .input-group { width: 100%; height: 40px; }
+            
+            .nav-details { border-top: 1px dashed #ccc !important; padding-top: 8px !important; display: flex; justify-content: space-between; align-items: center;}
+            .nav-details .timer, .nav-details .identity { margin: 0; text-align: left; }
+            .btn-arrive { margin-left: auto; }
+            
+            #logo-overlay { top: 10px; left: 10px; padding: 8px 12px; }
+            #logo-overlay h1 { font-size: 1.1rem; }
+            #logo-overlay h3 { font-size: 0.6rem; }
+            
+            #system-controls { top: 10px; right: 10px; gap: 5px; }
+            .control-btn { width: 34px; height: 34px; }
+            .control-btn svg { width: 18px; height: 18px; }
+            
             .ticket-body { flex-direction: column; }
         }
     </style>
@@ -331,8 +345,8 @@
                     </select>
                 </div>
             </div>
-
-            <div class="barcode">DESTINATIONUNKNOWN2026</div>
+            <div><br></div>
+            <div class="barcode">DESTINATION</div>
             <button class="btn-board" onclick="startGame()">DEPART</button>
         </div>
     </div>
@@ -340,24 +354,27 @@
     <!-- MAP CONTAINER -->
     <div id="map-container">
         
-        <div id="logo-overlay">
-            <h1>Destination Unknown</h1>
-            <h3>Australian Edition</h3>
-        </div>
+        <div id="map-wrapper">
+            <div id="logo-overlay">
+                <h1>Destination Unknown</h1>
+                <h3>Australian Edition</h3>
+            </div>
 
-        <div id="system-controls">
-            <button class="control-btn" id="btn-music" onclick="toggleMusic()" title="Toggle Music">
-                <svg viewBox="0 0 24 24"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>
-            </button>
-            <button class="control-btn" id="btn-sfx" onclick="toggleSFX()" title="Toggle SFX">
-                <svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
-            </button>
-            <button class="control-btn" onclick="openInfo()" title="Information">
-                <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
-            </button>
-        </div>
+            <div id="system-controls">
+                <button class="control-btn" id="btn-music" onclick="toggleMusic()" title="Toggle Music">
+                    <svg viewBox="0 0 24 24"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>
+                </button>
+                <button class="control-btn" id="btn-sfx" onclick="toggleSFX()" title="Toggle SFX">
+                    <svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
+                </button>
+                <button class="control-btn" onclick="openInfo()" title="Information">
+                    <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
+                </button>
+            </div>
 
-        <div id="map"></div>
+            <div id="map"></div>
+            <div class="vignette-overlay"></div>
+        </div>
         
         <!-- FIXED DASHBOARD -->
         <div id="dashboard">
@@ -385,9 +402,9 @@
             </div>
 
             <div class="dash-section nav-details">
-                <div class="timer" id="real-timer">60:00 Remaining</div>
-                <div class="identity">
-                    CONTROLLER: <span id="hud-pax-name">Unknown</span>
+                <div>
+                    <div class="timer" id="real-timer">60:00 Remaining</div>
+                    <div class="identity">CONTROLLER: <span id="hud-pax-name">Unknown</span></div>
                 </div>
                 <button class="btn-arrive" onclick="endGame()">ARRIVE</button>
             </div>
@@ -449,7 +466,6 @@
         // UPDATE THIS WITH YOUR GOOGLE SCRIPT URL
         // ==========================================
         const LEADERBOARD_API_URL = "https://script.google.com/macros/s/AKfycbyHc9qXX3yEKz4rIIftsHEIFBG1rDXvVJVI27sqlz3ndCSAnwJiWstoDO49ErcWwaAc/exec"; 
-
 
         // --- AUDIO ENGINE (Web Audio API & HTML Audio) ---
         let audioCtx;
@@ -879,11 +895,6 @@
             const listEl = document.getElementById('leaderboard-list');
             listEl.innerHTML = "<li>Transmitting data to ATC...</li>";
             
-            if (LEADERBOARD_API_URL === "https://script.google.com/macros/s/AKfycbyHc9qXX3yEKz4rIIftsHEIFBG1rDXvVJVI27sqlz3ndCSAnwJiWstoDO49ErcWwaAc/exec") {
-                listEl.innerHTML = "<li>Leaderboard API not connected. (Missing Script URL)</li>";
-                return;
-            }
-
             try {
                 // Using a simple GET request with query parameters to bypass complex CORS pre-flight logic
                 const url = `${LEADERBOARD_API_URL}?action=addScore&name=${encodeURIComponent(name)}&score=${score}&difficulty=${difficulty}`;
