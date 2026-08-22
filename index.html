@@ -54,9 +54,9 @@
             overflow: hidden;
         }
 
-        #map { width: 100%; height: 100%; background: #dcd2c6; }
+        /* Updated map background to match Voyager tiles */
+        #map { width: 100%; height: 100%; background: #c8dadf; }
 
-        /* Lighter Vignette & Better Tile Contrast */
         .vignette-overlay {
             position: absolute; top: 0; left: 0; right: 0; bottom: 0;
             background: radial-gradient(ellipse at center, transparent 35%, rgba(15, 10, 5, 0.65) 100%);
@@ -64,9 +64,10 @@
             z-index: 400;
         }
 
+        /* Reduced sepia for better land/sea contrast */
         .leaflet-tile-pane {
-            filter: sepia(0.4) contrast(1.15) brightness(0.9) saturate(1.1) hue-rotate(-10deg);
-            opacity: 0.95;
+            filter: sepia(0.15) contrast(1.2) brightness(0.9) saturate(1.1) hue-rotate(-5deg);
+            opacity: 1;
         }
 
         /* Flight Markers */
@@ -284,39 +285,39 @@
             border-bottom: 1px solid #ccc; padding-bottom: 5px; margin-bottom: 10px;
             text-align: center; text-transform: uppercase;
         }
-        .leaderboard-list { list-style: none; font-size: 0.9rem; max-height: 150px; overflow-y: auto; }
+        .leaderboard-list { list-style: none; font-size: 0.9rem; max-height: 150px; overflow-y: auto; display: none; }
         .leaderboard-list li { display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px dashed rgba(0,0,0,0.1); }
         .leaderboard-list li strong { color: var(--red-ink); }
         .lb-mode { font-size: 0.7rem; color: #777; text-transform: uppercase;}
 
+        #lb-submit-section {
+            margin-bottom: 15px;
+        }
+        .btn-submit-lb {
+            background: var(--ink); color: #fff; border: none; padding: 8px 15px;
+            font-family: 'Courier Prime', monospace; font-weight: bold; border-radius: 4px;
+            cursor: pointer; transition: 0.2s; margin-left: 10px;
+        }
+        .btn-submit-lb:hover { background: var(--red-ink); }
+
         /* --- MOBILE RESPONSIVENESS --- */
         @media (max-width: 768px) {
-            #dashboard {
-                height: auto;
-                flex-direction: column;
-                padding: 12px;
-                gap: 8px;
-            }
+            #dashboard { height: auto; flex-direction: column; padding: 12px; gap: 8px; }
             .dash-section { width: 100%; border: none !important; padding: 0 !important; text-align: center !important; }
             .tally-board { display: flex; justify-content: space-around; border-bottom: 1px dashed #ccc !important; padding-bottom: 8px !important; }
-            
             .flight-action-area { height: auto; min-height: 85px; margin: 0; padding: 8px; }
             #active-flight-panel { flex-direction: column; gap: 8px; }
             .flight-stats { text-align: center !important; width: 100%; }
             .input-group { width: 100%; height: 40px; }
-            
             .nav-details { border-top: 1px dashed #ccc !important; padding-top: 8px !important; display: flex; justify-content: space-between; align-items: center;}
             .nav-details .timer, .nav-details .identity { margin: 0; text-align: left; }
             .btn-arrive { margin-left: auto; }
-            
             #logo-overlay { top: 10px; left: 10px; padding: 8px 12px; }
             #logo-overlay h1 { font-size: 1.1rem; }
             #logo-overlay h3 { font-size: 0.6rem; }
-            
             #system-controls { top: 10px; right: 10px; gap: 5px; }
             .control-btn { width: 34px; height: 34px; }
             .control-btn svg { width: 18px; height: 18px; }
-            
             .ticket-body { flex-direction: column; }
         }
     </style>
@@ -448,9 +449,18 @@
 
             <!-- LEADERBOARD -->
             <div class="leaderboard-container">
-                <div class="leaderboard-title">Top Controllers</div>
+                <div class="leaderboard-title">ATC Leaderboard</div>
+                
+                <div id="lb-submit-section">
+                    <p style="font-size: 0.9rem; margin-bottom: 10px;">Submit your score to the central database?</p>
+                    <div style="display: flex; justify-content: center; align-items: center;">
+                        <input type="text" id="lb-submit-name" class="passenger-input" style="width: 180px; font-size: 1rem; border-bottom: 2px solid var(--ink);" placeholder="Your Name">
+                        <button class="btn-submit-lb" onclick="submitScore()">SUBMIT</button>
+                    </div>
+                </div>
+
                 <ul class="leaderboard-list" id="leaderboard-list">
-                    <li>Standby for ATC transmission...</li>
+                    <li id="lb-loading-text">Standby for ATC transmission...</li>
                 </ul>
             </div>
 
@@ -584,7 +594,8 @@
                 minZoom: 4, maxZoom: 6
             }).setView([-27.0, 133.0], 4.5);
             
-            L.tileLayer('https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png', {
+            // USING VOYAGER TILESET FOR BETTER LAND/SEA CONTRAST
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png', {
                 attribution: '&copy; OpenStreetMap', subdomains: 'abcd'
             }).addTo(map);
 
@@ -872,32 +883,40 @@
             document.getElementById('ticket').classList.remove('unfold');
             document.getElementById('ticket-screen').style.display = 'flex';
             document.getElementById('map-container').style.opacity = '0';
+            
+            // Reset Leaderboard UI for next game
+            document.getElementById('lb-submit-section').style.display = 'block';
+            document.getElementById('leaderboard-list').style.display = 'none';
         }
 
-        async function endGame() {
+        function endGame() {
             isGameActive = false;
             cancelAnimationFrame(mainLoop);
             
             const ctrlName = document.getElementById('hud-pax-name').innerText;
-            const difficulty = document.getElementById('difficulty-select').value;
 
             document.getElementById('end-controller-name').innerText = ctrlName;
             document.getElementById('end-verified').innerText = scoreVerified;
             document.getElementById('end-lost').innerText = scoreLost;
             
-            document.getElementById('end-screen').style.display = 'flex';
+            // Pre-fill the submit input with their ticket name
+            document.getElementById('lb-submit-name').value = ctrlName;
             
-            // Post to Leaderboard
-            await publishAndFetchLeaderboard(ctrlName, scoreVerified, difficulty);
+            document.getElementById('end-screen').style.display = 'flex';
         }
 
-        async function publishAndFetchLeaderboard(name, score, difficulty) {
-            const listEl = document.getElementById('leaderboard-list');
-            listEl.innerHTML = "<li>Transmitting data to ATC...</li>";
+        async function submitScore() {
+            const name = document.getElementById('lb-submit-name').value.trim() || 'Unknown';
+            const difficulty = document.getElementById('difficulty-select').value;
             
+            // Switch UI states
+            document.getElementById('lb-submit-section').style.display = 'none';
+            const listEl = document.getElementById('leaderboard-list');
+            listEl.style.display = 'block';
+            listEl.innerHTML = "<li id='lb-loading-text'>Transmitting data to ATC...</li>";
+
             try {
-                // Using a simple GET request with query parameters to bypass complex CORS pre-flight logic
-                const url = `${LEADERBOARD_API_URL}?action=addScore&name=${encodeURIComponent(name)}&score=${score}&difficulty=${difficulty}`;
+                const url = `${LEADERBOARD_API_URL}?action=addScore&name=${encodeURIComponent(name)}&score=${scoreVerified}&difficulty=${difficulty}`;
                 const response = await fetch(url);
                 const data = await response.json();
                 
@@ -911,7 +930,7 @@
                 });
             } catch (error) {
                 console.error("Leaderboard Error:", error);
-                listEl.innerHTML = "<li>Failed to load leaderboard. Server unreachable.</li>";
+                listEl.innerHTML = "<li>Error: Leaderboard API unreachable. Did you deploy as 'Anyone'?</li>";
             }
         }
     </script>
